@@ -1,9 +1,22 @@
 import { getGeminiModel } from './gemini'
+import { deriveMotifKeyword } from '@/lib/motif'
 import type { URLAnalysis } from '@/types/analysis'
 import type { Design } from '@/types/design'
 
+interface AIDesignResponse {
+  name: string
+  description: string
+  fgColor: string
+  bgColor: string
+  style: Design['style']
+  cornerStyle: Design['cornerStyle']
+  motifKeyword?: string
+}
+
 export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> {
   const model = getGeminiModel('gemini-pro')
+  const primaryColor = analysis.mainColor || analysis.designSuggestion.primaryColor
+  const palette = buildPalette(primaryColor, analysis.colors)
   
   const prompt = `
 あなたはQRコードデザイナーです。
@@ -13,7 +26,8 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
 - カテゴリー: ${analysis.category}
 - テーマ: ${analysis.theme}
 - 雰囲気: ${analysis.mood}
-- カラー: ${analysis.colors.join(', ')}
+- ブランドメインカラー: ${primaryColor || '抽出できず（AI推定可）'}
+- カラー候補: ${palette.join(', ')}
 - モチーフ: ${analysis.motif}
 
 各デザインには以下を含めてください:
@@ -23,6 +37,7 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
 4. 背景色（HEXコード）
 5. スタイル（bold/minimal/colorful/elegant）
 6. 角のスタイル（square/rounded/dots）
+7. モチーフキーワード（URLの特徴を表す英語1単語: dinosaur, aquarium, ai, coffee, company など）
 
 例: 恐竜博物館の場合
 {
@@ -46,40 +61,54 @@ JSON配列で出力してください。4つのデザインを含めてくださ
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\[[\s\S]*\]/)
     const jsonText = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text
     
-    const designs: Design[] = JSON.parse(jsonText.trim()).map((design: any, index: number) => ({
+    const rawDesigns: AIDesignResponse[] = JSON.parse(jsonText.trim())
+    const designs: Design[] = rawDesigns.map((design, index) => ({
       id: `design-${index + 1}`,
       name: design.name,
       description: design.description,
-      fgColor: design.fgColor,
-      bgColor: design.bgColor,
+      fgColor: design.fgColor || primaryColor || '#000000',
+      bgColor: design.bgColor || '#FFFFFF',
       style: design.style,
-      cornerStyle: design.cornerStyle
+      cornerStyle: design.cornerStyle,
+      motifKeyword: deriveMotifKeyword(analysis, design.motifKeyword)
     }))
     
     return designs
   } catch (error) {
     console.error('Error generating designs:', error)
     // フォールバック: デフォルトデザインを返す
+    const fallbackMotif = deriveMotifKeyword(analysis)
+    const fallbackPrimary = primaryColor || '#000000'
     return [
       {
         id: 'design-1',
         name: 'クラシック',
         description: 'シンプルで使いやすい',
-        fgColor: '#000000',
+        fgColor: fallbackPrimary,
         bgColor: '#FFFFFF',
         style: 'minimal',
-        cornerStyle: 'square'
+        cornerStyle: 'square',
+        motifKeyword: fallbackMotif
       },
       {
         id: 'design-2',
         name: 'モダン',
         description: '洗練されたデザイン',
-        fgColor: analysis.designSuggestion.primaryColor,
+        fgColor: fallbackPrimary,
         bgColor: '#FFFFFF',
         style: 'minimal',
-        cornerStyle: 'rounded'
+        cornerStyle: 'rounded',
+        motifKeyword: fallbackMotif
       }
     ]
   }
 }
 
+function buildPalette(primaryColor?: string, colors?: string[]): string[] {
+  const set = new Set<string>()
+  if (primaryColor) set.add(primaryColor)
+  colors?.forEach((c) => {
+    if (c) set.add(c)
+  })
+  return Array.from(set).slice(0, 4)
+}

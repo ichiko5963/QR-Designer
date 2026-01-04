@@ -12,6 +12,7 @@ const AnalysisSchema = z.object({
   mood: z.string(),
   colors: z.array(z.string()),
   motif: z.string(),
+  mainColor: z.string().optional(),
   designSuggestion: z.object({
     primaryColor: z.string(),
     accentColor: z.string(),
