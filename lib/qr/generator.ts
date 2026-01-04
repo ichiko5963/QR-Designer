@@ -28,45 +28,19 @@ export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
     .toBuffer()
   
   // ロゴがある場合は合成
-  if (logo) {
-    const logoSize = Math.floor(customization.size * (customization.logoSize / 100))
-    const logoResized = await sharp(logo)
-      .resize(logoSize, logoSize, { fit: 'contain' })
-      .toBuffer()
-    
-    // ロゴを中央に配置（白背景 + メインカラー枠）
-    const framePadding = 12
-    const frameSize = logoSize + framePadding * 2
-    const strokeWidth = Math.max(2, Math.floor(frameSize * 0.06))
-    const corner = Math.floor(frameSize * 0.12)
-    const frameSvg = Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${frameSize}" height="${frameSize}">
-        <rect x="0" y="0" width="${frameSize}" height="${frameSize}" rx="${corner}" ry="${corner}"
-          fill="#ffffff" stroke="${palette.primary}" stroke-width="${strokeWidth}" />
-      </svg>`
-    )
-    const logoWithFrame = await sharp(frameSvg)
-      .composite([{
-        input: logoResized,
-        left: framePadding,
-        top: framePadding
-      }])
-      .png()
-      .toBuffer()
-    
-    const finalSize = frameSize
-    const logoX = Math.floor((customization.size - finalSize) / 2)
-    const logoY = Math.floor((customization.size - finalSize) / 2)
-    
-    qrBuffer = await sharp(qrBuffer)
-      .composite([{
-        input: logoWithFrame,
-        left: logoX,
-        top: logoY
-      }])
-      .png()
-      .toBuffer()
-  }
+  qrBuffer = await composeLogoIfAny({
+    qrBuffer,
+    logo,
+    customization,
+    palette
+  })
+
+  qrBuffer = await composeFrameIfAny({
+    qrBuffer,
+    customization,
+    palette,
+    size: customization.size
+  })
   
   // 角の丸みを適用（maskで丸める）
   if (customization.cornerRadius > 0) {
@@ -368,6 +342,120 @@ function adjustColor(color: string, amount: number) {
   const b = clamp((num & 0xff) + amount, 0, 255)
   const hex = (r << 16) | (g << 8) | b
   return `#${hex.toString(16).padStart(6, '0')}`
+}
+
+async function composeLogoIfAny({
+  qrBuffer,
+  logo,
+  customization,
+  palette
+}: {
+  qrBuffer: Buffer
+  logo?: Buffer
+  customization: Customization
+  palette: MotifPalette
+}) {
+  if (!logo) return qrBuffer
+
+  const logoSize = Math.floor(customization.size * (customization.logoSize / 100))
+  const logoResized = await sharp(logo)
+    .resize(logoSize, logoSize, { fit: 'contain' })
+    .png()
+    .toBuffer()
+
+  // ロゴを中央に配置（白背景 + メインカラー枠）
+  const framePadding = 12
+  const frameSize = logoSize + framePadding * 2
+  const strokeWidth = Math.max(2, Math.floor(frameSize * 0.06))
+  const corner = Math.floor(frameSize * 0.12)
+  const frameSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${frameSize}" height="${frameSize}">
+      <rect x="0" y="0" width="${frameSize}" height="${frameSize}" rx="${corner}" ry="${corner}"
+        fill="#ffffff" stroke="${palette.primary}" stroke-width="${strokeWidth}" />
+    </svg>`
+  )
+  const logoWithFrame = await sharp(frameSvg)
+    .composite([{
+      input: logoResized,
+      left: framePadding,
+      top: framePadding
+    }])
+    .png()
+    .toBuffer()
+
+  const finalSize = frameSize
+  const logoX = Math.floor((customization.size - finalSize) / 2)
+  const logoY = Math.floor((customization.size - finalSize) / 2)
+
+  return sharp(qrBuffer)
+    .composite([{
+      input: logoWithFrame,
+      left: logoX,
+      top: logoY
+    }])
+    .png()
+    .toBuffer()
+}
+
+async function composeFrameIfAny({
+  qrBuffer,
+  customization,
+  palette,
+  size
+}: {
+  qrBuffer: Buffer
+  customization: Customization
+  palette: MotifPalette
+  size: number
+}) {
+  if (!customization.frameEnabled) return qrBuffer
+
+  const padding = Math.floor(size * 0.08)
+  const text = (customization.frameText || '').trim()
+  const frameColor = sanitizeHex(customization.frameColor, palette.primary)
+  const background = sanitizeHex(customization.frameBackground, '#ffffff')
+
+  const frameWidth = size + padding * 2
+  const frameHeight = size + padding * 2 + (text ? 48 : 0)
+  const corner = Math.floor(frameWidth * 0.06)
+  const strokeWidth = Math.max(2, Math.floor(frameWidth * 0.015))
+
+  const svgParts = [
+    `<rect x="0" y="0" width="${frameWidth}" height="${frameHeight}" rx="${corner}" ry="${corner}" fill="${background}" stroke="${frameColor}" stroke-width="${strokeWidth}" />`
+  ]
+  if (text) {
+    svgParts.push(
+      `<text x="50%" y="${frameHeight - 16}" text-anchor="middle" font-family="Inter, 'Noto Sans JP', sans-serif" font-size="18" fill="${frameColor}">${escapeXml(
+        text
+      )}</text>`
+    )
+  }
+
+  const frameSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${frameWidth}" height="${frameHeight}">
+      ${svgParts.join('\n')}
+    </svg>`
+  )
+
+  const framed = await sharp(frameSvg)
+    .composite([{
+      input: qrBuffer,
+      left: padding,
+      top: padding
+    }])
+    .png()
+    .toBuffer()
+
+  return framed
+}
+
+function escapeXml(input: string) {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
 }
 
 function clamp(value: number, min: number, max: number) {

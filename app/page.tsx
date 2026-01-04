@@ -15,7 +15,11 @@ const defaultCustomization: Customization = {
   logoSize: 18,
   logoBackground: true,
   errorCorrectionLevel: 'M',
-  dotStyle: 'square'
+  dotStyle: 'square',
+  frameEnabled: true,
+  frameText: 'Scan me!',
+  frameColor: '#000000',
+  frameBackground: '#ffffff'
 }
 
 export default function Home() {
@@ -187,51 +191,7 @@ export default function Home() {
 
         {designs.length > 0 && (
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <div>
-              <DesignGrid
-                designs={designs}
-                selectedDesign={selectedDesign}
-                onSelectDesign={handleSelectDesign}
-              />
-            </div>
-
-            <div className="lg:sticky lg:top-8">
-              <div className="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="text-sm font-semibold text-gray-700 mb-2">ドット形状</div>
-                <div className="flex gap-2 mb-3">
-                  {(['square', 'rounded', 'dots'] as Customization['dotStyle'][]).map((style) => (
-                    <button
-                      key={style}
-                      onClick={() => handleDotStyleChange(style)}
-                      className={`px-3 py-2 text-sm rounded border ${
-                        customization.dotStyle === style
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                      }`}
-                    >
-                      {style === 'square' ? '四角' : style === 'rounded' ? '丸' : 'ドット'}
-                    </button>
-                  ))}
-                </div>
-                <div className="text-sm font-semibold text-gray-700 mb-2">QR外形</div>
-                <div className="flex gap-2">
-                  {(['square', 'round'] as const).map((shape) => (
-                    <button
-                      key={shape}
-                      onClick={() => handleShapeChange(shape)}
-                      className={`px-3 py-2 text-sm rounded border ${
-                        (shape === 'round' && customization.cornerRadius > 0) ||
-                        (shape === 'square' && customization.cornerRadius === 0)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                      }`}
-                    >
-                      {shape === 'square' ? '角あり' : 'ラウンド'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+            <div className="lg:sticky lg:top-8 order-2 lg:order-1">
               {selectedDesign && (
                 <QRPreview
                   qrCode={qrCode}
@@ -243,6 +203,112 @@ export default function Home() {
                   rateLimitMessage={rateLimitMessage}
                 />
               )}
+            </div>
+
+            <div className="order-1 lg:order-2">
+              <div className="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm space-y-4">
+                <h3 className="text-base font-semibold text-gray-800">QRをデザインする</h3>
+
+                <section className="space-y-2">
+                  <div className="text-sm font-semibold text-gray-700">フレーム設定</div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() =>
+                        setCustomization((prev) => ({ ...prev, frameEnabled: !prev.frameEnabled }))
+                      }
+                      className={`px-3 py-2 text-sm rounded border ${
+                        customization.frameEnabled
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      }`}
+                    >
+                      {customization.frameEnabled ? 'フレームON' : 'フレームOFF'}
+                    </button>
+                  </div>
+                  <label className="block">
+                    <span className="text-xs text-gray-600">フレームテキスト</span>
+                    <input
+                      value={customization.frameText || ''}
+                      onChange={(e) =>
+                        setCustomization((prev) => ({ ...prev, frameText: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                      placeholder="Scan me!"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-gray-600">フレームカラー</span>
+                    <input
+                      type="color"
+                      value={customization.frameColor || '#000000'}
+                      onChange={(e) =>
+                        setCustomization((prev) => ({ ...prev, frameColor: e.target.value }))
+                      }
+                      className="mt-1 h-10 w-20 rounded border border-gray-300"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-gray-600">フレーム背景色</span>
+                    <input
+                      type="color"
+                      value={customization.frameBackground || '#ffffff'}
+                      onChange={(e) =>
+                        setCustomization((prev) => ({ ...prev, frameBackground: e.target.value }))
+                      }
+                      className="mt-1 h-10 w-20 rounded border border-gray-300"
+                    />
+                  </label>
+                </section>
+
+                <section className="space-y-2">
+                  <div className="text-sm font-semibold text-gray-700">パターン（ドット）設定</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {(['square', 'rounded', 'dots'] as Customization['dotStyle'][]).map((style) => (
+                      <button
+                        key={style}
+                        onClick={() => handleDotStyleChange(style)}
+                        className={`px-3 py-2 text-sm rounded border ${
+                          customization.dotStyle === style
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                        }`}
+                      >
+                        {style === 'square' ? '四角' : style === 'rounded' ? '丸' : 'ドット'}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-2">
+                  <div className="text-sm font-semibold text-gray-700">コーナー設定</div>
+                  <div className="flex gap-2">
+                    {(['square', 'round'] as const).map((shape) => (
+                      <button
+                        key={shape}
+                        onClick={() => handleShapeChange(shape)}
+                        className={`px-3 py-2 text-sm rounded border ${
+                          (shape === 'round' && customization.cornerRadius > 0) ||
+                          (shape === 'square' && customization.cornerRadius === 0)
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                        }`}
+                      >
+                        {shape === 'square' ? '角あり' : 'ラウンド'}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+                  お忘れなく！背景とコードのコントラストを高める配色をおすすめします。
+                </div>
+              </div>
+
+              <DesignGrid
+                designs={designs}
+                selectedDesign={selectedDesign}
+                onSelectDesign={handleSelectDesign}
+              />
             </div>
           </div>
         )}

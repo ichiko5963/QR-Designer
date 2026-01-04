@@ -49,7 +49,8 @@ export default function QRPreview({
 
   return (
     <div className="mt-8 p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-2xl font-semibold mb-4">QRコードプレビュー</h2>
+      <h2 className="text-2xl font-semibold mb-1">QRコードプレビュー</h2>
+      <p className="text-sm text-gray-500 mb-4">QRコードの準備ができました</p>
       
       <div className="flex flex-col items-center gap-4">
         <img
@@ -67,17 +68,20 @@ export default function QRPreview({
             ダウンロード
           </button>
           
-          {requiresAuth && (
-            <button
-              onClick={handleSaveToHistory}
-              disabled={isSaving}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-            >
-              {isSaving ? '保存中...' : '履歴に保存'}
-            </button>
-          )}
+          <button
+            onClick={handleSaveToHistory}
+            disabled={isSaving}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            {isSaving ? '保存中...' : 'Googleで認証してダウンロード'}
+          </button>
         </div>
         
+        <div className="text-sm text-gray-600 text-center">
+          今作成したQRコードをダウンロードできます。<br />
+          過去のQRコード管理・再編集・高解像度ダウンロードも可能になります。
+        </div>
+
         {rateLimitExceeded && rateLimitMessage && (
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">{rateLimitMessage}</p>
