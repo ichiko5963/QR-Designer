@@ -56,7 +56,8 @@ export default function Home() {
 
       const analyzeData = await analyzeResponse.json()
       setAnalysis(analyzeData.data)
-      setLogoUrl(analyzeData.data.ogImage || analyzeData.data.favicon || null)
+      // ロゴはファビコンを優先して埋め込む
+      setLogoUrl(analyzeData.data.favicon || null)
 
       // Step 2: デザイン生成
       const designsResponse = await fetch('/api/generate-designs', {
@@ -152,6 +153,14 @@ export default function Home() {
     }
   }
 
+  const handleShapeChange = async (shape: 'square' | 'round') => {
+    const radius = shape === 'round' ? 18 : 0
+    setCustomization((prev) => ({ ...prev, cornerRadius: radius }))
+    if (selectedDesign) {
+      await generateQRCode(selectedDesign, false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-6xl mx-auto">
@@ -189,7 +198,7 @@ export default function Home() {
             <div className="lg:sticky lg:top-8">
               <div className="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                 <div className="text-sm font-semibold text-gray-700 mb-2">ドット形状</div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-3">
                   {(['square', 'rounded', 'dots'] as Customization['dotStyle'][]).map((style) => (
                     <button
                       key={style}
@@ -201,6 +210,23 @@ export default function Home() {
                       }`}
                     >
                       {style === 'square' ? '四角' : style === 'rounded' ? '丸' : 'ドット'}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-sm font-semibold text-gray-700 mb-2">QR外形</div>
+                <div className="flex gap-2">
+                  {(['square', 'round'] as const).map((shape) => (
+                    <button
+                      key={shape}
+                      onClick={() => handleShapeChange(shape)}
+                      className={`px-3 py-2 text-sm rounded border ${
+                        (shape === 'round' && customization.cornerRadius > 0) ||
+                        (shape === 'square' && customization.cornerRadius === 0)
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      }`}
+                    >
+                      {shape === 'square' ? '角あり' : 'ラウンド'}
                     </button>
                   ))}
                 </div>
