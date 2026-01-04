@@ -140,7 +140,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
@@ -163,25 +163,29 @@ export default function Home() {
         )}
 
         {designs.length > 0 && (
-          <>
-            <DesignGrid
-              designs={designs}
-              selectedDesign={selectedDesign}
-              onSelectDesign={handleSelectDesign}
-            />
-
-            {selectedDesign && (
-              <QRPreview
-                qrCode={qrCode}
-                design={selectedDesign}
-                customization={customization}
-                onSaveToHistory={handleSaveToHistory}
-                requiresAuth={requiresAuth}
-                rateLimitExceeded={rateLimitExceeded}
-                rateLimitMessage={rateLimitMessage}
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div>
+              <DesignGrid
+                designs={designs}
+                selectedDesign={selectedDesign}
+                onSelectDesign={handleSelectDesign}
               />
-            )}
-          </>
+            </div>
+
+            <div className="lg:sticky lg:top-8">
+              {selectedDesign && (
+                <QRPreview
+                  qrCode={qrCode}
+                  design={selectedDesign}
+                  customization={customization}
+                  onSaveToHistory={handleSaveToHistory}
+                  requiresAuth={requiresAuth}
+                  rateLimitExceeded={rateLimitExceeded}
+                  rateLimitMessage={rateLimitMessage}
+                />
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
