@@ -23,19 +23,33 @@ export async function extractMetadata(url: string): Promise<Metadata> {
     const $ = cheerio.load(htmlSnippet)
     
     const mainColor = extractMainColor(html)
+    const faviconHref =
+      $('link[rel="icon"]').attr('href') ||
+      $('link[rel="shortcut icon"]').attr('href') ||
+      $('link[rel="apple-touch-icon"]').attr('href') ||
+      $('link[rel="apple-touch-icon-precomposed"]').attr('href')
+    const favicon = resolveToAbsolute(faviconHref, url) || new URL('/favicon.ico', url).toString()
+    const ogImage = resolveToAbsolute($('meta[property="og:image"]').attr('content'), url)
 
     return {
       title: $('title').text() || '',
       description: $('meta[name="description"]').attr('content') || '',
-      ogImage: $('meta[property="og:image"]').attr('content'),
-      favicon: $('link[rel="icon"]').attr('href') || 
-               $('link[rel="shortcut icon"]').attr('href') ||
-               new URL('/favicon.ico', url).toString(),
+      ogImage,
+      favicon,
       mainColor
     }
   } catch (error) {
     console.error('Error extracting metadata:', error)
     throw new Error('Failed to extract metadata from URL')
+  }
+}
+
+function resolveToAbsolute(href?: string, base?: string): string | undefined {
+  if (!href) return undefined
+  try {
+    return new URL(href, base).toString()
+  } catch {
+    return undefined
   }
 }
 
