@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import URLInput from './components/URLInput'
 import DesignGrid from './components/DesignGrid'
@@ -81,6 +81,22 @@ export default function Home() {
   const [logoMode, setLogoMode] = useState<'auto' | 'upload'>('auto')
   const [uploadedLogo, setUploadedLogo] = useState<string | null>(null)
   const router = useRouter()
+
+  const applyCustomizationAndRefresh = async (updater: (prev: Customization) => Customization) => {
+    setCustomization((prev) => {
+      const next = updater(prev)
+      return next
+    })
+    if (selectedDesign) {
+      await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null)
+    }
+  }
+
+  useEffect(() => {
+    if (selectedDesign && !qrCode) {
+      generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null)
+    }
+  }, [selectedDesign]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnalyze = async (inputUrl: string) => {
     setIsLoading(true)
@@ -200,29 +216,20 @@ export default function Home() {
   }
 
   const handleDotStyleChange = async (style: Customization['dotStyle']) => {
-    setCustomization((prev) => ({ ...prev, dotStyle: style }))
-    if (selectedDesign) {
-      await generateQRCode(selectedDesign, false)
-    }
+    await applyCustomizationAndRefresh((prev) => ({ ...prev, dotStyle: style, patternStyle: style }))
   }
 
   const handleShapeChange = async (shape: 'square' | 'round') => {
     const radius = shape === 'round' ? 18 : 0
-    setCustomization((prev) => ({ ...prev, cornerRadius: radius, outerShape: shape }))
-    if (selectedDesign) {
-      await generateQRCode(selectedDesign, false)
-    }
+    await applyCustomizationAndRefresh((prev) => ({ ...prev, cornerRadius: radius, outerShape: shape }))
   }
 
   const handleSwapPatternColors = async () => {
-    setCustomization((prev) => ({
+    await applyCustomizationAndRefresh((prev) => ({
       ...prev,
       patternColor1: prev.patternBackground1,
       patternBackground1: prev.patternColor1
     }))
-    if (selectedDesign) {
-      await generateQRCode(selectedDesign, false)
-    }
   }
 
   const handleConfirm = () => {
@@ -298,8 +305,8 @@ export default function Home() {
                   </div>
                   <div className="flex gap-2 flex-wrap items-center">
                     <button
-                      onClick={() =>
-                        setCustomization((prev) => ({ ...prev, frameEnabled: !prev.frameEnabled }))
+                      onClick={async () =>
+                        await applyCustomizationAndRefresh((prev) => ({ ...prev, frameEnabled: !prev.frameEnabled }))
                       }
                       className={`px-3 py-2 text-sm rounded border ${
                         customization.frameEnabled
@@ -315,7 +322,9 @@ export default function Home() {
                       {frameTemplates.map((tmpl) => (
                         <button
                           key={tmpl}
-                          onClick={() => setCustomization((prev) => ({ ...prev, frameTemplate: tmpl }))}
+                          onClick={async () =>
+                            await applyCustomizationAndRefresh((prev) => ({ ...prev, frameTemplate: tmpl }))
+                          }
                           className={`min-w-[88px] h-20 rounded-lg border flex items-center justify-center text-xs ${
                             customization.frameTemplate === tmpl
                               ? 'border-purple-500 ring-2 ring-purple-200'
@@ -331,8 +340,8 @@ export default function Home() {
                     <label className="text-xs text-gray-600">フレームテキスト</label>
                     <input
                       value={customization.frameText || ''}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({ ...prev, frameText: e.target.value }))
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({ ...prev, frameText: e.target.value }))
                       }
                       className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
                       placeholder="スキャンして！"
@@ -349,8 +358,11 @@ export default function Home() {
                     <input
                       type="checkbox"
                       checked={!!customization.frameGradientEnabled}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({ ...prev, frameGradientEnabled: e.target.checked }))
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
+                          ...prev,
+                          frameGradientEnabled: e.target.checked
+                        }))
                       }
                     />
                   </div>
@@ -359,8 +371,11 @@ export default function Home() {
                     <select
                       className="border rounded px-2 py-1 text-sm"
                       value={customization.frameGradientStyle || 'linear'}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({ ...prev, frameGradientStyle: e.target.value as any }))
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
+                          ...prev,
+                          frameGradientStyle: e.target.value as any
+                        }))
                       }
                     >
                       <option value="linear">線形</option>
@@ -381,8 +396,8 @@ export default function Home() {
                         />
                         <input
                           value={item.value}
-                          onChange={(e) =>
-                            setCustomization((prev) => ({ ...prev, [item.key]: e.target.value }))
+                          onChange={async (e) =>
+                            await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
                           }
                           className="flex-1 rounded border px-2 py-1 text-sm"
                         />
@@ -398,8 +413,11 @@ export default function Home() {
                     <input
                       type="checkbox"
                       checked={!!customization.frameBackgroundTransparent}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({ ...prev, frameBackgroundTransparent: e.target.checked }))
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
+                          ...prev,
+                          frameBackgroundTransparent: e.target.checked
+                        }))
                       }
                     />
                     透明な背景
@@ -409,8 +427,8 @@ export default function Home() {
                     <input
                       type="checkbox"
                       checked={!!customization.frameBackgroundGradientEnabled}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
                           ...prev,
                           frameBackgroundGradientEnabled: e.target.checked
                         }))
@@ -422,8 +440,8 @@ export default function Home() {
                     <select
                       className="border rounded px-2 py-1 text-sm"
                       value={customization.frameBackgroundGradientStyle || 'linear'}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
                           ...prev,
                           frameBackgroundGradientStyle: e.target.value as any
                         }))
@@ -447,8 +465,8 @@ export default function Home() {
                         />
                         <input
                           value={item.value}
-                          onChange={(e) =>
-                            setCustomization((prev) => ({ ...prev, [item.key]: e.target.value }))
+                          onChange={async (e) =>
+                            await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
                           }
                           className="flex-1 rounded border px-2 py-1 text-sm"
                         />
@@ -548,8 +566,8 @@ export default function Home() {
                         />
                         <input
                           value={item.value}
-                          onChange={(e) =>
-                            setCustomization((prev) => ({ ...prev, [item.key]: e.target.value }))
+                          onChange={async (e) =>
+                            await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
                           }
                           className="flex-1 rounded border px-2 py-1 text-sm"
                         />
@@ -640,8 +658,8 @@ export default function Home() {
                     <label className="text-xs text-gray-600">コーナードットの色</label>
                     <input
                       value={customization.patternBackground1 || '#000000'}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({ ...prev, patternBackground1: e.target.value }))
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({ ...prev, patternBackground1: e.target.value }))
                       }
                       className="rounded border px-2 py-1 text-sm"
                     />
