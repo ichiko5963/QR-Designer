@@ -34,6 +34,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { url, design, customization, logo, logoUrl, saveToHistory } = GenerateQRSchema.parse(body)
+    const siteOrigin = new URL(url).origin
     
     // ロゴをBufferに変換
     let logoBuffer: Buffer | undefined
@@ -44,6 +45,8 @@ export async function POST(req: Request) {
       if (logoUrl) candidates.push(logoUrl)
       // 明示ロゴがない場合でも /favicon.ico を試す
       candidates.push(new URL('/favicon.ico', url).toString())
+      // 最終手段として Google の favicon 取得API
+      candidates.push(`https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(siteOrigin)}`)
       logoBuffer = await fetchFirstAvailableLogo(candidates)
     }
     
