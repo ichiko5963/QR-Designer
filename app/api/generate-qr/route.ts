@@ -39,25 +39,12 @@ export async function POST(req: Request) {
     let logoBuffer: Buffer | undefined
     if (logo) {
       logoBuffer = Buffer.from(logo.replace(/^data:image\/\w+;base64,/, ''), 'base64')
-    } else if (logoUrl) {
-      try {
-        const fetched = await fetch(logoUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        })
-        if (fetched.ok) {
-          const contentType = fetched.headers.get('content-type') || ''
-          if (contentType.startsWith('image/')) {
-            const arrayBuffer = await fetched.arrayBuffer()
-            const rawBuffer = Buffer.from(arrayBuffer)
-            // ICOなど互換性のない形式をPNGに正規化
-            logoBuffer = await sharp(rawBuffer).png().toBuffer()
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to fetch remote logo:', err)
-      }
+    } else {
+      const candidates: string[] = []
+      if (logoUrl) candidates.push(logoUrl)
+      // 明示ロゴがない場合でも /favicon.ico を試す
+      candidates.push(new URL('/favicon.ico', url).toString())
+      logoBuffer = await fetchFirstAvailableLogo(candidates)
     }
     
     // QRコード生成
@@ -159,4 +146,29 @@ export async function POST(req: Request) {
       { status: 500 }
     )
   }
+}
+
+async function fetchFirstAvailableLogo(candidates: string[]): Promise<Buffer | undefined> {
+  for (const candidate of candidates) {
+    try {
+      const fetched = await fetch(candidate, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      })
+      if (!fetched.ok) continue
+
+      const contentType = fetched.headers.get('content-type') || ''
+      if (!contentType.startsWith('image/')) continue
+
+      const arrayBuffer = await fetched.arrayBuffer()
+      const rawBuffer = Buffer.from(arrayBuffer)
+      // ICOなどもPNGに正規化
+      const normalized = await sharp(rawBuffer).png().toBuffer()
+      return normalized
+    } catch (err) {
+      console.warn('Failed to fetch logo candidate:', candidate, err)
+    }
+  }
+  return undefined
 }
