@@ -11,6 +11,8 @@ interface FinalData {
 
 export default function FinalPage() {
   const [data, setData] = useState<FinalData | null>(null)
+  const [isAuthed, setIsAuthed] = useState(false)
+  const [shortUrl, setShortUrl] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -67,6 +69,42 @@ export default function FinalPage() {
               >
                 デザインに戻る
               </button>
+            </div>
+
+            <div className="w-full border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-gray-800">短縮URLの設定</div>
+                  <p className="text-xs text-gray-500">
+                    Google認証すると短縮URLを設定できます。
+                  </p>
+                </div>
+                {!isAuthed && (
+                  <button
+                    onClick={() => setIsAuthed(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                  >
+                    Googleで認証
+                  </button>
+                )}
+              </div>
+              {isAuthed && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">短縮URL</span>
+                  <input
+                    value={shortUrl}
+                    onChange={(e) => setShortUrl(e.target.value)}
+                    placeholder="例: https://qr.ly/mybrand"
+                    className="flex-1 rounded border px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={() => alert(`短縮URLを保存しました: ${shortUrl || '(未入力)'}`)}
+                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  >
+                    保存
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

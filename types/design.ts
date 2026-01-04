@@ -25,4 +25,26 @@ export interface Customization {
    * QR外枠スタイル（square = 角あり, round = 角丸）
    */
   outerShape?: 'square' | 'round'
+  frameTemplate?: string
+  frameGradientEnabled?: boolean
+  frameGradientStyle?: 'linear' | 'radial'
+  frameColor1?: string
+  frameColor2?: string
+  frameBackgroundTransparent?: boolean
+  frameBackgroundGradientEnabled?: boolean
+  frameBackgroundGradientStyle?: 'linear' | 'radial'
+  frameBackground1?: string
+  frameBackground2?: string
+  patternStyle?: 'square' | 'round' | 'rounder' | 'dot' | 'heart' | 'diamond'
+  patternGradientEnabled?: boolean
+  patternGradientStyle?: 'linear' | 'radial'
+  patternColor1?: string
+  patternColor2?: string
+  patternBackgroundTransparent?: boolean
+  patternBackgroundGradientEnabled?: boolean
+  patternBackgroundGradientStyle?: 'linear' | 'radial'
+  patternBackground1?: string
+  patternBackground2?: string
+  cornerFrameStyle?: string
+  cornerDotStyle?: string
 }

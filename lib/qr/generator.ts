@@ -16,7 +16,7 @@ export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
   const palette = getMotifPalette(design)
   
   // AIデザイン要件を反映したスタイルSVGを生成
-  const styledSvg = generateStyledSvg(url, design, customization)
+  const styledSvg = generateStyledSvg(url, design, customization, palette)
 
   // SVGをPNGに変換
   let qrBuffer = await sharp(Buffer.from(styledSvg))
@@ -68,18 +68,29 @@ export async function generateQRCodeAsDataURL(
   return `data:image/png;base64,${base64}`
 }
 
-function generateStyledSvg(url: string, design: Design, customization: Customization): string {
+function generateStyledSvg(
+  url: string,
+  design: Design,
+  customization: Customization,
+  palette: MotifPalette
+): string {
   const qr = QRCode.create(url, { errorCorrectionLevel: customization.errorCorrectionLevel })
   const moduleCount = qr.modules.size
   const cellSize = customization.size / moduleCount
   const uid = `qr-${Math.random().toString(36).slice(2, 8)}`
-  const palette = getMotifPalette(design)
   const motifKey = motifShapeKey(design.motifKeyword)
-  const fgColor = sanitizeHex(palette.primary, '#000000')
-  const backgroundColor = sanitizeHex(palette.secondary, '#f5f5f5')
-  const accentColor = sanitizeHex(palette.highlight, adjustColor(fgColor, -30))
-  const { fill, defs: backgroundDefs } = getBackgroundFill(design, uid, palette)
-  const shadow = getShadowDef(design, uid, fgColor)
+  const patternFill = getPatternColor(customization, palette, uid)
+  const { fill: backgroundColor, defs: backgroundDefs } = getPatternBackgroundFill(
+    customization,
+    design,
+    uid,
+    palette
+  )
+  const accentColor = sanitizeHex(
+    palette.highlight,
+    adjustColor(patternFill.baseColor || patternFill.fill, -30)
+  )
+  const shadow = getShadowDef(design, uid, patternFill.baseColor || patternFill.fill)
   const motifOverlay = createMotifOverlay({
     keyword: design.motifKeyword,
     size: customization.size,
@@ -97,8 +108,9 @@ function generateStyledSvg(url: string, design: Design, customization: Customiza
           x: col * cellSize,
           y: row * cellSize,
           size: cellSize,
-          style: customization.dotStyle,
-          color: fgColor,
+          style: (customization.patternStyle as Customization['dotStyle']) || customization.dotStyle,
+          color: patternFill.baseColor || patternFill.fill,
+          gradientFill: patternFill.fillGradient,
           motif: motifKey,
           row,
           col
@@ -110,15 +122,15 @@ function generateStyledSvg(url: string, design: Design, customization: Customiza
   const finderPatterns = createFinderPatterns({
     cellSize,
     moduleCount,
-    style: design.cornerStyle,
-    primary: fgColor,
+    style: (customization.cornerDotStyle as Design['cornerStyle']) || design.cornerStyle,
+    primary: patternFill.baseColor || patternFill.fill,
     secondary: backgroundColor,
     accent: accentColor
   })
 
-  const defs = [backgroundDefs, shadow?.definition].filter(Boolean).join('')
+  const defs = [backgroundDefs, patternFill.defs, shadow?.definition].filter(Boolean).join('')
   const filterAttr = shadow ? `filter="url(#${shadow.id})"` : ''
-  const backgroundElement = `<rect width="100%" height="100%" fill="${fill}" />`
+  const backgroundElement = `<rect width="100%" height="100%" fill="${backgroundColor}" />`
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${customization.size}" height="${customization.size}" viewBox="0 0 ${customization.size} ${customization.size}">
@@ -139,6 +151,7 @@ function createModuleElement({
   size,
   style,
   color,
+  gradientFill,
   motif,
   row,
   col
@@ -146,8 +159,9 @@ function createModuleElement({
   x: number
   y: number
   size: number
-  style: Customization['dotStyle']
+  style: Customization['dotStyle'] | Customization['patternStyle']
   color: string
+  gradientFill?: string
   motif: MotifKey
   row: number
   col: number
@@ -158,12 +172,53 @@ function createModuleElement({
 
   // モチーフがfishの場合は魚型ドットで敷き詰める
   if (motif === 'fish') {
-    return createFishModule({ x, y, size, color, row, col })
+    return createFishModule({ x, y, size, color, gradientFill, row, col })
   }
 
-  if (style === 'dots') {
+  if (style === 'dots' || style === 'dot') {
     const radius = drawSize / 2
-    return `<circle cx="${x + size / 2}" cy="${y + size / 2}" r="${radius}" fill="${color}" />`
+    return `<circle cx="${x + size / 2}" cy="${y + size / 2}" r="${radius}" fill="${
+      gradientFill || color
+    }" />`
+  }
+
+  if (style === 'heart') {
+    const cx = x + size / 2
+    const cy = y + size / 2
+    const r = drawSize / 2
+    const path = `
+      M ${cx} ${cy + r * 0.3}
+      C ${cx + r} ${cy - r * 0.4}, ${cx + r * 1.2} ${cy + r * 0.6}, ${cx} ${cy + r}
+      C ${cx - r * 1.2} ${cy + r * 0.6}, ${cx - r} ${cy - r * 0.4}, ${cx} ${cy + r * 0.3}
+      Z
+    `
+    return `<path d="${path}" fill="${gradientFill || color}" />`
+  }
+
+  if (style === 'diamond' || style === 'x') {
+    const cx = x + size / 2
+    const cy = y + size / 2
+    const r = drawSize / 2
+    if (style === 'diamond') {
+      return `<polygon points="${cx} ${cy - r}, ${cx + r} ${cy}, ${cx} ${cy + r}, ${cx - r} ${cy}" fill="${
+        gradientFill || color
+      }" />`
+    }
+    return `
+      <rect x="${cx - r / 6}" y="${cy - r}" width="${r / 3}" height="${drawSize}" transform="rotate(45 ${cx} ${cy})" fill="${
+      gradientFill || color
+    }" />
+      <rect x="${cx - r / 6}" y="${cy - r}" width="${r / 3}" height="${drawSize}" transform="rotate(-45 ${cx} ${cy})" fill="${
+      gradientFill || color
+    }" />
+    `
+  }
+
+  if (style === 'rounder') {
+    const radius = drawSize * 0.6
+    return `<rect x="${x + offset}" y="${y + offset}" width="${drawSize}" height="${drawSize}" rx="${radius}" ry="${radius}" fill="${
+      gradientFill || color
+    }" />`
   }
 
   const radius =
@@ -171,7 +226,9 @@ function createModuleElement({
       ? drawSize * 0.5
       : Math.min(drawSize * 0.15, size * 0.15)
 
-  return `<rect x="${x + offset}" y="${y + offset}" width="${drawSize}" height="${drawSize}" rx="${radius}" ry="${radius}" fill="${color}" />`
+  return `<rect x="${x + offset}" y="${y + offset}" width="${drawSize}" height="${drawSize}" rx="${radius}" ry="${radius}" fill="${
+    gradientFill || color
+  }" />`
 }
 
 function createFishModule({
@@ -179,6 +236,7 @@ function createFishModule({
   y,
   size,
   color,
+  gradientFill,
   row,
   col
 }: {
@@ -186,6 +244,7 @@ function createFishModule({
   y: number
   size: number
   color: string
+  gradientFill?: string
   row: number
   col: number
 }) {
@@ -213,7 +272,7 @@ function createFishModule({
     Z
   `
 
-  return `<path d="${path}" fill="${color}" />`
+  return `<path d="${path}" fill="${gradientFill || color}" />`
 }
 
 function createFinderPatterns({
@@ -277,21 +336,54 @@ function isFinderPattern(row: number, col: number, moduleCount: number) {
   return (top && left) || (top && right) || (bottom && left)
 }
 
-function getBackgroundFill(design: Design, uid: string, palette: MotifPalette) {
-  const base = sanitizeHex(palette.background, design.bgColor || '#ffffff')
-  const accent = sanitizeHex(palette.secondary, adjustColor(base, -10))
-  if (design.style === 'colorful' || design.style === 'elegant') {
-    return createGradient(uid, base, accent, 120)
+function getPatternBackgroundFill(
+  customization: Customization,
+  design: Design,
+  uid: string,
+  palette: MotifPalette
+) {
+  if (customization.patternBackgroundTransparent) {
+    return { fill: 'none', defs: '' }
+  }
+  const base = sanitizeHex(
+    customization.patternBackground1 || customization.frameBackground || palette.background,
+    design.bgColor || '#ffffff'
+  )
+  if (customization.patternBackgroundGradientEnabled) {
+    const end = sanitizeHex(
+      customization.patternBackground2 || adjustColor(base, -10),
+      adjustColor(base, -10)
+    )
+    return createGradient(
+      `${uid}-pbg`,
+      base,
+      end,
+      customization.patternBackgroundGradientStyle || 'linear',
+      120
+    )
   }
   return { fill: base, defs: '' }
 }
 
-function createGradient(uid: string, start: string, end: string, angle: number) {
+function createGradient(
+  uid: string,
+  start: string,
+  end: string,
+  mode: 'linear' | 'radial' = 'linear',
+  angle = 120
+) {
   const gradientId = `${uid}-gradient`
   const normalizedStart = sanitizeHex(start, '#ffffff')
   const normalizedEnd = sanitizeHex(end, '#e5e5e5')
 
-  const definition = `
+  const definition =
+    mode === 'radial'
+      ? `
+    <radialGradient id="${gradientId}">
+      <stop offset="0%" stop-color="${normalizedStart}" />
+      <stop offset="100%" stop-color="${normalizedEnd}" />
+    </radialGradient>`
+      : `
     <linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="0%" gradientTransform="rotate(${angle})">
       <stop offset="0%" stop-color="${normalizedStart}" />
       <stop offset="100%" stop-color="${normalizedEnd}" />
@@ -412,20 +504,90 @@ async function composeFrameIfAny({
 
   const padding = Math.floor(size * 0.08)
   const text = (customization.frameText || '').trim()
-  const frameColor = sanitizeHex(customization.frameColor, palette.primary)
-  const background = sanitizeHex(customization.frameBackground, '#ffffff')
+  const template = customization.frameTemplate || 'outline'
+  const gradientEnabled = customization.frameGradientEnabled
+  const frameColorBase = sanitizeHex(customization.frameColor1 || customization.frameColor || palette.primary)
+  const frameColorSecond = sanitizeHex(customization.frameColor2 || adjustColor(frameColorBase, -18))
+  const frameBackgroundBase = customization.frameBackgroundTransparent
+    ? 'none'
+    : sanitizeHex(customization.frameBackground1 || customization.frameBackground || '#ffffff')
+  const frameBackgroundSecond = sanitizeHex(
+    customization.frameBackground2 || adjustColor(frameBackgroundBase, -12)
+  )
 
   const frameWidth = size + padding * 2
-  const frameHeight = size + padding * 2 + (text ? 48 : 0)
+  const frameHeight = size + padding * 2 + (text ? 56 : 0)
   const corner = Math.floor(frameWidth * 0.06)
   const strokeWidth = Math.max(2, Math.floor(frameWidth * 0.015))
 
-  const svgParts = [
-    `<rect x="0" y="0" width="${frameWidth}" height="${frameHeight}" rx="${corner}" ry="${corner}" fill="${background}" stroke="${frameColor}" stroke-width="${strokeWidth}" />`
-  ]
+  const frameGrad = gradientEnabled
+    ? createGradient(
+        `${template}-frame-${size}`,
+        frameColorBase,
+        frameColorSecond,
+        (customization.frameGradientStyle as 'linear' | 'radial') || 'linear',
+        135
+      )
+    : null
+
+  const bgGrad =
+    customization.frameBackgroundGradientEnabled && !customization.frameBackgroundTransparent
+      ? createGradient(
+          `${template}-frame-bg-${size}`,
+          frameBackgroundBase,
+          frameBackgroundSecond,
+          (customization.frameBackgroundGradientStyle as 'linear' | 'radial') || 'linear',
+          90
+        )
+      : null
+
+  const frameFill = frameGrad ? frameGrad.fill : frameColorBase
+  const backgroundFill =
+    frameBackgroundBase === 'none' ? 'none' : bgGrad ? bgGrad.fill : frameBackgroundBase
+  const defs = [frameGrad?.defs, bgGrad?.defs].filter(Boolean).join('')
+
+  const svgParts: string[] = []
+  svgParts.push(
+    `<rect x="0" y="0" width="${frameWidth}" height="${frameHeight}" rx="${corner}" ry="${corner}" fill="${backgroundFill}" stroke="${frameFill}" stroke-width="${strokeWidth}" />`
+  )
+
+  if (template === 'band-bottom') {
+    svgParts.push(
+      `<rect x="${strokeWidth * 2}" y="${frameHeight - 48}" width="${frameWidth - strokeWidth * 4}" height="40" rx="${corner *
+        0.6}" ry="${corner * 0.6}" fill="${frameFill}" opacity="0.15" />`
+    )
+  } else if (template === 'band-top') {
+    svgParts.push(
+      `<rect x="${strokeWidth * 2}" y="${strokeWidth * 2}" width="${frameWidth - strokeWidth * 4}" height="40" rx="${corner *
+        0.6}" ry="${corner * 0.6}" fill="${frameFill}" opacity="0.15" />`
+    )
+  } else if (template === 'double') {
+    svgParts.push(
+      `<rect x="${strokeWidth * 2}" y="${strokeWidth * 2}" width="${frameWidth - strokeWidth * 4}" height="${frameHeight -
+        strokeWidth * 4}" rx="${corner * 0.8}" ry="${corner * 0.8}" fill="none" stroke="${frameFill}" stroke-width="${Math.max(
+        1,
+        strokeWidth - 1
+      )}" opacity="0.7" />`
+    )
+  } else if (template === 'ticket') {
+    const notch = corner * 0.8
+    svgParts.push(
+      `<path d="M0 ${corner} Q0 0 ${corner} 0 H ${frameWidth - corner} Q ${frameWidth} 0 ${frameWidth} ${corner} V ${frameHeight /
+        2 -
+        notch} Q ${frameWidth - corner} ${frameHeight / 2} ${frameWidth} ${frameHeight / 2 + notch} V ${frameHeight -
+        corner} Q ${frameWidth} ${frameHeight} ${frameWidth - corner} ${frameHeight} H ${corner} Q 0 ${frameHeight} 0 ${frameHeight -
+        corner} V ${frameHeight / 2 + notch} Q ${corner} ${frameHeight / 2} 0 ${frameHeight / 2 - notch} Z" fill="none" stroke="${frameFill}" stroke-width="${strokeWidth}" />`
+    )
+  } else if (template === 'dotted') {
+    svgParts.push(
+      `<rect x="${strokeWidth / 2}" y="${strokeWidth / 2}" width="${frameWidth - strokeWidth}" height="${frameHeight -
+        strokeWidth}" rx="${corner}" ry="${corner}" fill="${backgroundFill}" stroke="${frameFill}" stroke-width="${strokeWidth}" stroke-dasharray="8 6" />`
+    )
+  }
+
   if (text) {
     svgParts.push(
-      `<text x="50%" y="${frameHeight - 16}" text-anchor="middle" font-family="Inter, 'Noto Sans JP', sans-serif" font-size="18" fill="${frameColor}">${escapeXml(
+      `<text x="50%" y="${frameHeight - 16}" text-anchor="middle" font-family="Inter, 'Noto Sans JP', sans-serif" font-size="18" fill="${frameFill}">${escapeXml(
         text
       )}</text>`
     )
@@ -433,6 +595,7 @@ async function composeFrameIfAny({
 
   const frameSvg = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${frameWidth}" height="${frameHeight}">
+      <defs>${defs}</defs>
       ${svgParts.join('\n')}
     </svg>`
   )
@@ -713,4 +876,23 @@ function getMotifPalette(design: Design): MotifPalette {
     highlight: adjustColor(design.fgColor || '#000000', 20),
     overlay: adjustColor(design.bgColor || '#ffffff', 10)
   }
+}
+
+function getPatternColor(customization: Customization, palette: MotifPalette, uid: string) {
+  const base = sanitizeHex(customization.patternColor1 || palette.primary, palette.primary)
+  if (customization.patternGradientEnabled) {
+    const end = sanitizeHex(
+      customization.patternColor2 || adjustColor(base, -25),
+      adjustColor(base, -25)
+    )
+    const grad = createGradient(
+      `${uid}-pattern`,
+      base,
+      end,
+      customization.patternGradientStyle || 'linear',
+      135
+    )
+    return { fill: `url(#${uid}-pattern)`, fillGradient: grad.fill, defs: grad.defs, baseColor: base }
+  }
+  return { fill: base, fillGradient: '', defs: '', baseColor: base }
 }
