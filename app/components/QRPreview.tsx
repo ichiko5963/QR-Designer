@@ -8,40 +8,16 @@ interface QRPreviewProps {
   qrCode: string | null
   design: Design | null
   customization: Customization
-  onSaveToHistory: () => Promise<void>
-  requiresAuth?: boolean
-  rateLimitExceeded?: boolean
-  rateLimitMessage?: string
+  onConfirm: () => void
 }
 
 export default function QRPreview({
   qrCode,
   design,
   customization,
-  onSaveToHistory,
-  requiresAuth,
-  rateLimitExceeded,
-  rateLimitMessage
+  onConfirm
 }: QRPreviewProps) {
-  const [isSaving, setIsSaving] = useState(false)
-
-  const handleDownload = () => {
-    if (!qrCode) return
-    
-    const link = document.createElement('a')
-    link.href = qrCode
-    link.download = `qr-code-${Date.now()}.png`
-    link.click()
-  }
-
-  const handleSaveToHistory = async () => {
-    setIsSaving(true)
-    try {
-      await onSaveToHistory()
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  const [isConfirming, setIsConfirming] = useState(false)
 
   if (!qrCode) {
     return null
@@ -60,33 +36,24 @@ export default function QRPreview({
           style={{ width: `${customization.size}px` }}
         />
         
-        <div className="flex gap-4">
-          <button
-            onClick={handleDownload}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            ダウンロード
-          </button>
-          
-          <button
-            onClick={handleSaveToHistory}
-            disabled={isSaving}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            {isSaving ? '保存中...' : 'Googleで認証してダウンロード'}
-          </button>
-        </div>
+        <button
+          onClick={async () => {
+            setIsConfirming(true)
+            try {
+              onConfirm()
+            } finally {
+              setIsConfirming(false)
+            }
+          }}
+          disabled={isConfirming}
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {isConfirming ? '確定中...' : 'これで確定して次へ'}
+        </button>
         
         <div className="text-sm text-gray-600 text-center">
-          今作成したQRコードをダウンロードできます。<br />
-          過去のQRコード管理・再編集・高解像度ダウンロードも可能になります。
+          確定後、ダウンロード画面に移動します。
         </div>
-
-        {rateLimitExceeded && rateLimitMessage && (
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">{rateLimitMessage}</p>
-          </div>
-        )}
       </div>
     </div>
   )

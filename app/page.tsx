@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import URLInput from './components/URLInput'
 import DesignGrid from './components/DesignGrid'
 import QRPreview from './components/QRPreview'
@@ -16,6 +17,7 @@ const defaultCustomization: Customization = {
   logoBackground: true,
   errorCorrectionLevel: 'M',
   dotStyle: 'square',
+  outerShape: 'round',
   frameEnabled: true,
   frameText: 'Scan me!',
   frameColor: '#000000',
@@ -34,6 +36,9 @@ export default function Home() {
   const [rateLimitExceeded, setRateLimitExceeded] = useState(false)
   const [rateLimitMessage, setRateLimitMessage] = useState('')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoMode, setLogoMode] = useState<'auto' | 'upload'>('auto')
+  const [uploadedLogo, setUploadedLogo] = useState<string | null>(null)
+  const router = useRouter()
 
   const handleAnalyze = async (inputUrl: string) => {
     setIsLoading(true)
@@ -62,6 +67,8 @@ export default function Home() {
       setAnalysis(analyzeData.data)
       // ロゴはファビコンを優先して埋め込む
       setLogoUrl(analyzeData.data.favicon || null)
+      setLogoMode('auto')
+      setUploadedLogo(null)
 
       // Step 2: デザイン生成
       const designsResponse = await fetch('/api/generate-designs', {
@@ -91,7 +98,7 @@ export default function Home() {
     }
   }
 
-  const generateQRCode = async (design: Design, saveToHistory: boolean) => {
+  const generateQRCode = async (design: Design, saveToHistory: boolean, inlineLogo?: string | null) => {
     if (!design || !url) return
 
     setIsLoading(true)
@@ -106,7 +113,9 @@ export default function Home() {
         customization,
         saveToHistory
       }
-      if (logoUrl) {
+      if (logoMode === 'upload' && (inlineLogo || uploadedLogo)) {
+        payload.logo = inlineLogo || uploadedLogo
+      } else if (logoUrl) {
         payload.logoUrl = logoUrl
       }
 
@@ -150,6 +159,25 @@ export default function Home() {
     await generateQRCode(selectedDesign, true)
   }
 
+  const handleLogoUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('画像ファイルを選択してください')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const result = e.target?.result
+      if (typeof result === 'string') {
+        setUploadedLogo(result)
+        setLogoMode('upload')
+        if (selectedDesign) {
+          await generateQRCode(selectedDesign, false, result)
+        }
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleDotStyleChange = async (style: Customization['dotStyle']) => {
     setCustomization((prev) => ({ ...prev, dotStyle: style }))
     if (selectedDesign) {
@@ -159,9 +187,26 @@ export default function Home() {
 
   const handleShapeChange = async (shape: 'square' | 'round') => {
     const radius = shape === 'round' ? 18 : 0
-    setCustomization((prev) => ({ ...prev, cornerRadius: radius }))
+    setCustomization((prev) => ({ ...prev, cornerRadius: radius, outerShape: shape }))
     if (selectedDesign) {
       await generateQRCode(selectedDesign, false)
+    }
+  }
+
+  const handleConfirm = () => {
+    if (!qrCode) return
+    try {
+      localStorage.setItem(
+        'qr-final',
+        JSON.stringify({
+          qrCode,
+          design: selectedDesign,
+          customization
+        })
+      )
+      router.push('/final')
+    } catch (err) {
+      console.error('Failed to persist QR for final page', err)
     }
   }
 
@@ -197,10 +242,7 @@ export default function Home() {
                   qrCode={qrCode}
                   design={selectedDesign}
                   customization={customization}
-                  onSaveToHistory={handleSaveToHistory}
-                  requiresAuth={requiresAuth}
-                  rateLimitExceeded={rateLimitExceeded}
-                  rateLimitMessage={rateLimitMessage}
+                  onConfirm={handleConfirm}
                 />
               )}
             </div>
@@ -258,6 +300,39 @@ export default function Home() {
                       className="mt-1 h-10 w-20 rounded border border-gray-300"
                     />
                   </label>
+                </section>
+
+                <section className="space-y-2">
+                  <div className="text-sm font-semibold text-gray-700">ロゴ設定</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {(['auto', 'upload'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => setLogoMode(mode)}
+                        className={`px-3 py-2 text-sm rounded border ${
+                          logoMode === mode
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                        }`}
+                      >
+                        {mode === 'auto' ? '自動(favicon)' : 'アップロード'}
+                      </button>
+                    ))}
+                  </div>
+                  {logoMode === 'upload' && (
+                    <label className="block">
+                      <span className="text-xs text-gray-600">ロゴ画像（1:1推奨）</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="mt-1 w-full text-sm"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (file) await handleLogoUpload(file)
+                        }}
+                      />
+                    </label>
+                  )}
                 </section>
 
                 <section className="space-y-2">
