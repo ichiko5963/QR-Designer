@@ -13,7 +13,8 @@ const GenerateQRSchema = z.object({
     fgColor: z.string(),
     bgColor: z.string(),
     style: z.string(),
-    cornerStyle: z.string()
+    cornerStyle: z.string(),
+    motifKeyword: z.string()
   }),
   customization: z.object({
     size: z.number().min(256).max(4096),
@@ -24,18 +25,33 @@ const GenerateQRSchema = z.object({
     dotStyle: z.string()
   }),
   logo: z.string().optional(), // base64 encoded image
+  logoUrl: z.string().url().optional(),
   saveToHistory: z.boolean().optional().default(false)
 })
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { url, design, customization, logo, saveToHistory } = GenerateQRSchema.parse(body)
+    const { url, design, customization, logo, logoUrl, saveToHistory } = GenerateQRSchema.parse(body)
     
     // ロゴをBufferに変換
     let logoBuffer: Buffer | undefined
     if (logo) {
       logoBuffer = Buffer.from(logo.replace(/^data:image\/\w+;base64,/, ''), 'base64')
+    } else if (logoUrl) {
+      try {
+        const fetched = await fetch(logoUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        })
+        if (fetched.ok) {
+          const arrayBuffer = await fetched.arrayBuffer()
+          logoBuffer = Buffer.from(arrayBuffer)
+        }
+      } catch (err) {
+        console.warn('Failed to fetch remote logo:', err)
+      }
     }
     
     // QRコード生成
@@ -138,4 +154,3 @@ export async function POST(req: Request) {
     )
   }
 }
-

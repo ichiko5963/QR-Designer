@@ -29,6 +29,7 @@ export default function Home() {
   const [requiresAuth, setRequiresAuth] = useState(false)
   const [rateLimitExceeded, setRateLimitExceeded] = useState(false)
   const [rateLimitMessage, setRateLimitMessage] = useState('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   const handleAnalyze = async (inputUrl: string) => {
     setIsLoading(true)
@@ -55,6 +56,7 @@ export default function Home() {
 
       const analyzeData = await analyzeResponse.json()
       setAnalysis(analyzeData.data)
+      setLogoUrl(analyzeData.data.ogImage || analyzeData.data.favicon || null)
 
       // Step 2: デザイン生成
       const designsResponse = await fetch('/api/generate-designs', {
@@ -93,15 +95,20 @@ export default function Home() {
     setRateLimitMessage('')
 
     try {
+      const payload: Record<string, unknown> = {
+        url,
+        design,
+        customization,
+        saveToHistory
+      }
+      if (logoUrl) {
+        payload.logoUrl = logoUrl
+      }
+
       const response = await fetch('/api/generate-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          design,
-          customization,
-          saveToHistory
-        })
+        body: JSON.stringify(payload)
       })
 
       const data = await response.json()
@@ -136,6 +143,13 @@ export default function Home() {
   const handleSaveToHistory = async () => {
     if (!selectedDesign) return
     await generateQRCode(selectedDesign, true)
+  }
+
+  const handleDotStyleChange = async (style: Customization['dotStyle']) => {
+    setCustomization((prev) => ({ ...prev, dotStyle: style }))
+    if (selectedDesign) {
+      await generateQRCode(selectedDesign, false)
+    }
   }
 
   return (
@@ -173,6 +187,25 @@ export default function Home() {
             </div>
 
             <div className="lg:sticky lg:top-8">
+              <div className="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="text-sm font-semibold text-gray-700 mb-2">ドット形状</div>
+                <div className="flex gap-2">
+                  {(['square', 'rounded', 'dots'] as Customization['dotStyle'][]).map((style) => (
+                    <button
+                      key={style}
+                      onClick={() => handleDotStyleChange(style)}
+                      className={`px-3 py-2 text-sm rounded border ${
+                        customization.dotStyle === style
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      }`}
+                    >
+                      {style === 'square' ? '四角' : style === 'rounded' ? '丸' : 'ドット'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {selectedDesign && (
                 <QRPreview
                   qrCode={qrCode}

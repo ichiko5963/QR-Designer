@@ -21,7 +21,7 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
   
   const prompt = `
 あなたはQRコードデザイナーです。
-以下の情報を元に、4種類のユニークで美しいQRコードデザインを提案してください。
+以下の情報を元に、3種類のユニークで「印象の違いがはっきりした」QRコードデザインを提案してください。
 
 サイト情報:
 - カテゴリー: ${analysis.category}
@@ -31,13 +31,13 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
 - カラー候補: ${palette.join(', ')}
 - モチーフ: ${analysis.motif}
 
-各デザインには以下を含めてください:
+各デザインには以下を含めてください（3案すべてで色・スタイル・角・モチーフ表現が被らないこと）:
 1. 名前（キャッチーな日本語、10文字以内）
 2. 説明（どんな印象を与えるか、20文字以内）
 3. 前景色（HEXコード）
 4. 背景色（HEXコード）
-5. スタイル（bold/minimal/colorful/elegant）
-6. 角のスタイル（square/rounded/dots）
+5. スタイル（bold/minimal/colorful/elegant をばらけさせる）
+6. 角のスタイル（square/rounded/dots をばらけさせる）
 7. モチーフキーワード（URLの特徴を表す英語1単語: dinosaur, aquarium, ai, coffee, company など）
 
 例: 恐竜博物館の場合
@@ -50,7 +50,7 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
   "cornerStyle": "dots"
 }
 
-JSON配列で出力してください。4つのデザインを含めてください。
+JSON配列で出力してください。3つのデザインを含めてください。
 `
 
   try {
@@ -67,7 +67,7 @@ JSON配列で出力してください。4つのデザインを含めてくださ
       normalizeDesign(design, `design-${index + 1}`, analysis, primaryColor, motifKeyword)
     )
 
-    return ensureFourDesigns(normalized, primaryColor, palette, motifKeyword, analysis)
+    return ensureThreeDesigns(normalized, primaryColor, palette, motifKeyword, analysis)
   } catch (error) {
     console.error('Error generating designs:', error)
     // フォールバック: デフォルトデザインを返す
@@ -104,7 +104,7 @@ function normalizeDesign(
   }
 }
 
-function ensureFourDesigns(
+function ensureThreeDesigns(
   designs: Design[],
   primaryColor: string | undefined,
   palette: string[],
@@ -115,7 +115,7 @@ function ensureFourDesigns(
   const seen = new Set<string>()
 
   const pushIfNew = (design: Design) => {
-    const key = `${design.name.toLowerCase()}|${design.fgColor}|${design.bgColor}|${design.cornerStyle}`
+    const key = `${design.name.toLowerCase()}|${design.fgColor}|${design.bgColor}|${design.cornerStyle}|${design.style}`
     if (seen.has(key)) return
     seen.add(key)
     unique.push(design)
@@ -125,11 +125,11 @@ function ensureFourDesigns(
 
   const fillers = buildFallbackDesigns(primaryColor, palette, motif, analysis)
   for (const filler of fillers) {
-    if (unique.length >= 4) break
+    if (unique.length >= 3) break
     pushIfNew(filler)
   }
 
-  return unique.slice(0, 4)
+  return unique.slice(0, 3)
 }
 
 function buildFallbackDesigns(
@@ -172,16 +172,6 @@ function buildFallbackDesigns(
       bgColor: '#FFFFFF',
       style: 'colorful',
       cornerStyle: 'dots',
-      motifKeyword: motif
-    },
-    {
-      id: 'design-d',
-      name: 'ディープ',
-      description: 'トーンを落として品よく',
-      fgColor: adjustColor(base, -24),
-      bgColor: '#FDFDFD',
-      style: 'elegant',
-      cornerStyle: 'square',
       motifKeyword: motif
     }
   ]
