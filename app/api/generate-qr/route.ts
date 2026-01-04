@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { generateQRCodeAsDataURL } from '@/lib/qr/generator'
+import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 import type { Design } from '@/types/design'
 import type { Customization } from '@/types/design'
@@ -46,8 +47,13 @@ export async function POST(req: Request) {
           }
         })
         if (fetched.ok) {
-          const arrayBuffer = await fetched.arrayBuffer()
-          logoBuffer = Buffer.from(arrayBuffer)
+          const contentType = fetched.headers.get('content-type') || ''
+          if (contentType.startsWith('image/')) {
+            const arrayBuffer = await fetched.arrayBuffer()
+            const rawBuffer = Buffer.from(arrayBuffer)
+            // ICOなど互換性のない形式をPNGに正規化
+            logoBuffer = await sharp(rawBuffer).png().toBuffer()
+          }
         }
       } catch (err) {
         console.warn('Failed to fetch remote logo:', err)
