@@ -13,6 +13,7 @@ export interface QRCodeOptions {
 
 export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
   const { url, design, customization, logo } = options
+  const palette = getMotifPalette(design)
   
   // AIデザイン要件を反映したスタイルSVGを生成
   const styledSvg = generateStyledSvg(url, design, customization)
@@ -33,46 +34,38 @@ export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
       .resize(logoSize, logoSize, { fit: 'contain' })
       .toBuffer()
     
-    // ロゴを中央に配置
-    const logoX = Math.floor((customization.size - logoSize) / 2)
-    const logoY = Math.floor((customization.size - logoSize) / 2)
+    // ロゴを中央に配置（白背景 + メインカラー枠）
+    const framePadding = 12
+    const frameSize = logoSize + framePadding * 2
+    const strokeWidth = Math.max(2, Math.floor(frameSize * 0.06))
+    const corner = Math.floor(frameSize * 0.12)
+    const frameSvg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${frameSize}" height="${frameSize}">
+        <rect x="0" y="0" width="${frameSize}" height="${frameSize}" rx="${corner}" ry="${corner}"
+          fill="#ffffff" stroke="${palette.primary}" stroke-width="${strokeWidth}" />
+      </svg>`
+    )
+    const logoWithFrame = await sharp(frameSvg)
+      .composite([{
+        input: logoResized,
+        left: framePadding,
+        top: framePadding
+      }])
+      .png()
+      .toBuffer()
     
-    if (customization.logoBackground) {
-      // 白い背景を追加
-      const logoWithBackground = await sharp({
-        create: {
-          width: logoSize + 20,
-          height: logoSize + 20,
-          channels: 4,
-          background: { r: 255, g: 255, b: 255, alpha: 1 }
-        }
-      })
-        .composite([{
-          input: logoResized,
-          left: 10,
-          top: 10
-        }])
-        .png()
-        .toBuffer()
-      
-      qrBuffer = await sharp(qrBuffer)
-        .composite([{
-          input: logoWithBackground,
-          left: logoX - 10,
-          top: logoY - 10
-        }])
-        .png()
-        .toBuffer()
-    } else {
-      qrBuffer = await sharp(qrBuffer)
-        .composite([{
-          input: logoResized,
-          left: logoX,
-          top: logoY
-        }])
-        .png()
-        .toBuffer()
-    }
+    const finalSize = frameSize
+    const logoX = Math.floor((customization.size - finalSize) / 2)
+    const logoY = Math.floor((customization.size - finalSize) / 2)
+    
+    qrBuffer = await sharp(qrBuffer)
+      .composite([{
+        input: logoWithFrame,
+        left: logoX,
+        top: logoY
+      }])
+      .png()
+      .toBuffer()
   }
   
   // 角の丸みを適用（maskで丸める）
