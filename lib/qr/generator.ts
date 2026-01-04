@@ -107,6 +107,7 @@ function generateStyledSvg(url: string, design: Design, customization: Customiza
   const cellSize = customization.size / moduleCount
   const uid = `qr-${Math.random().toString(36).slice(2, 8)}`
   const palette = getMotifPalette(design)
+  const motifKey = motifShapeKey(design.motifKeyword)
   const fgColor = sanitizeHex(palette.primary, '#000000')
   const backgroundColor = sanitizeHex(palette.secondary, '#f5f5f5')
   const accentColor = sanitizeHex(palette.highlight, adjustColor(fgColor, -30))
@@ -130,7 +131,10 @@ function generateStyledSvg(url: string, design: Design, customization: Customiza
           y: row * cellSize,
           size: cellSize,
           style: customization.dotStyle,
-          color: fgColor
+          color: fgColor,
+          motif: motifKey,
+          row,
+          col
         })
       )
     }
@@ -167,17 +171,28 @@ function createModuleElement({
   y,
   size,
   style,
-  color
+  color,
+  motif,
+  row,
+  col
 }: {
   x: number
   y: number
   size: number
   style: Customization['dotStyle']
   color: string
+  motif: MotifKey
+  row: number
+  col: number
 }) {
   const padding = style === 'square' ? size * 0.1 : size * 0.2
   const drawSize = size - padding * 2
   const offset = padding
+
+  // モチーフがfishの場合は魚型ドットで敷き詰める
+  if (motif === 'fish') {
+    return createFishModule({ x, y, size, color, row, col })
+  }
 
   if (style === 'dots') {
     const radius = drawSize / 2
@@ -190,6 +205,48 @@ function createModuleElement({
       : Math.min(drawSize * 0.15, size * 0.15)
 
   return `<rect x="${x + offset}" y="${y + offset}" width="${drawSize}" height="${drawSize}" rx="${radius}" ry="${radius}" fill="${color}" />`
+}
+
+function createFishModule({
+  x,
+  y,
+  size,
+  color,
+  row,
+  col
+}: {
+  x: number
+  y: number
+  size: number
+  color: string
+  row: number
+  col: number
+}) {
+  const padding = size * 0.12
+  const tailWidth = size * 0.22
+  const bodyEnd = x + size - padding
+  const bodyStart = x + padding
+  const bodyMidY = y + size / 2
+  const dir = (row + col) % 2 === 0 ? 1 : -1 // 交互に向きを変えてリズム感
+  const tailDir = dir === 1 ? -1 : 1
+
+  const tailX = dir === 1 ? bodyStart : bodyEnd
+  const noseX = dir === 1 ? bodyEnd : bodyStart
+
+  const path = `
+    M ${bodyStart} ${bodyMidY - size * 0.22}
+    C ${bodyStart + dir * size * 0.28} ${bodyMidY - size * 0.38},
+      ${noseX - dir * size * 0.18} ${bodyMidY - size * 0.34},
+      ${noseX} ${bodyMidY}
+    C ${noseX - dir * size * 0.18} ${bodyMidY + size * 0.34},
+      ${bodyStart + dir * size * 0.28} ${bodyMidY + size * 0.38},
+      ${bodyStart} ${bodyMidY + size * 0.22}
+    L ${tailX + tailDir * tailWidth} ${bodyMidY + size * 0.32}
+    L ${tailX + tailDir * tailWidth} ${bodyMidY - size * 0.32}
+    Z
+  `
+
+  return `<path d="${path}" fill="${color}" />`
 }
 
 function createFinderPatterns({
