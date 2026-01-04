@@ -12,13 +12,13 @@ import type { Customization } from '@/types/design'
 
 const defaultCustomization: Customization = {
   size: 512,
-  cornerRadius: 20,
+  cornerRadius: 0,
   logoSize: 18,
   logoBackground: true,
   errorCorrectionLevel: 'M',
   dotStyle: 'square',
-  outerShape: 'round',
-  frameEnabled: true,
+  outerShape: 'square',
+  frameEnabled: false,
   frameText: 'スキャンして！',
   frameTemplate: 'outline',
   frameGradientEnabled: false,
@@ -276,11 +276,11 @@ export default function Home() {
         {designs.length > 0 && (
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <div className="lg:sticky lg:top-8 order-2 lg:order-1">
-              {selectedDesign && (
-                <QRPreview
-                  qrCode={qrCode}
-                  design={selectedDesign}
-                  customization={customization}
+            {selectedDesign && (
+              <QRPreview
+                qrCode={qrCode}
+                design={selectedDesign}
+                customization={customization}
                   onConfirm={handleConfirm}
                 />
               )}
@@ -519,10 +519,13 @@ export default function Home() {
                     {patternStyles.map((p) => (
                       <button
                         key={p.key}
-                        onClick={() => {
-                          setCustomization((prev) => ({ ...prev, patternStyle: p.key as any, dotStyle: p.key as any }))
-                          if (selectedDesign) generateQRCode(selectedDesign, false)
-                        }}
+                        onClick={async () =>
+                          await applyCustomizationAndRefresh((prev) => ({
+                            ...prev,
+                            patternStyle: p.key as any,
+                            dotStyle: p.key as any
+                          }))
+                        }
                         className={`h-16 rounded-lg border text-xs flex items-center justify-center ${
                           customization.patternStyle === p.key || customization.dotStyle === p.key
                             ? 'border-purple-500 ring-2 ring-purple-200'
@@ -538,8 +541,11 @@ export default function Home() {
                     <input
                       type="checkbox"
                       checked={!!customization.patternGradientEnabled}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({ ...prev, patternGradientEnabled: e.target.checked }))
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
+                          ...prev,
+                          patternGradientEnabled: e.target.checked
+                        }))
                       }
                     />
                   </div>
@@ -579,8 +585,8 @@ export default function Home() {
                     <input
                       type="checkbox"
                       checked={!!customization.patternBackgroundTransparent}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
                           ...prev,
                           patternBackgroundTransparent: e.target.checked
                         }))
@@ -592,8 +598,8 @@ export default function Home() {
                     <input
                       type="checkbox"
                       checked={!!customization.patternBackgroundGradientEnabled}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({
                           ...prev,
                           patternBackgroundGradientEnabled: e.target.checked
                         }))
@@ -614,9 +620,9 @@ export default function Home() {
                         />
                         <input
                           value={item.value}
-                          onChange={(e) =>
-                            setCustomization((prev) => ({ ...prev, [item.key]: e.target.value }))
-                          }
+                        onChange={async (e) =>
+                          await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
+                        }
                           className="flex-1 rounded border px-2 py-1 text-sm"
                         />
                       </div>
@@ -650,8 +656,8 @@ export default function Home() {
                     <label className="text-xs text-gray-600">フレーム周囲のドットの色</label>
                     <input
                       value={customization.patternColor1 || '#000000'}
-                      onChange={(e) =>
-                        setCustomization((prev) => ({ ...prev, patternColor1: e.target.value }))
+                      onChange={async (e) =>
+                        await applyCustomizationAndRefresh((prev) => ({ ...prev, patternColor1: e.target.value }))
                       }
                       className="rounded border px-2 py-1 text-sm"
                     />
