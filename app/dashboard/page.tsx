@@ -4,6 +4,109 @@ import Link from 'next/link'
 // キャッシュを無効化して常に最新データを取得
 export const dynamic = 'force-dynamic'
 
+// 白黒アイコンコンポーネント
+function WifiIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+    </svg>
+  )
+}
+
+function LineIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+    </svg>
+  )
+}
+
+function CameraIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+    </svg>
+  )
+}
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  )
+}
+
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+    </svg>
+  )
+}
+
+function BuildingIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+    </svg>
+  )
+}
+
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+    </svg>
+  )
+}
+
+function EnvelopeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+    </svg>
+  )
+}
+
+function MapPinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+    </svg>
+  )
+}
+
+function UserIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+    </svg>
+  )
+}
+
+function BriefcaseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
+    </svg>
+  )
+}
+
+function StarIcon({ className, filled }: { className?: string; filled?: boolean }) {
+  return filled ? (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+    </svg>
+  ) : (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+    </svg>
+  )
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -38,20 +141,14 @@ export default async function DashboardPage() {
   }
   const displayPlanName = planDisplayNames[planName] || 'Free'
 
-  // 保存されたURL（QRコードリンク）を取得
-  const { data: savedUrls } = await supabase
-    .from('saved_urls')
-    .select('*')
+  // お気に入りQRコード取得
+  const { data: favoriteQRs } = await supabase
+    .from('qr_history')
+    .select('id, url, page_title, design_name, qr_image_url, created_at, is_favorite')
     .eq('user_id', user.id)
+    .eq('is_favorite', true)
     .order('created_at', { ascending: false })
-
-  // カテゴリ別にグループ化
-  const urlsByCategory = (savedUrls || []).reduce((acc, url) => {
-    const category = url.category || 'その他'
-    if (!acc[category]) acc[category] = []
-    acc[category].push(url)
-    return acc
-  }, {} as Record<string, typeof savedUrls>)
+    .limit(4)
 
   const isPaidPlan = planName !== 'free'
 
@@ -61,7 +158,7 @@ export default async function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1B1723]">ダッシュボード</h1>
-          <p className="text-sm text-[#1B1723]/50">URLの管理と分析</p>
+          <p className="text-sm text-[#1B1723]/50">プライベート・法人QRコードの管理</p>
         </div>
 
         {/* 統計バッジ - 横並び */}
@@ -110,162 +207,184 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* URL管理セクション */}
+      {/* お気に入りQRコード */}
+      {favoriteQRs && favoriteQRs.length > 0 && (
+        <div className="bg-white rounded-2xl border border-[#171158]/5 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <StarIcon className="w-4 h-4 text-[#E6A24C]" filled />
+            <h2 className="text-sm font-semibold text-[#1B1723]">お気に入り</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {favoriteQRs.map((qr) => (
+              <div key={qr.id} className="group relative">
+                <div className="aspect-square bg-[#FAFBFC] rounded-xl p-2 border border-[#171158]/5 group-hover:border-[#E6A24C]/30 transition-all">
+                  {qr.qr_image_url && (
+                    <img
+                      src={qr.qr_image_url}
+                      alt={qr.page_title || 'QR Code'}
+                      className="w-full h-full object-contain"
+                    />
+                  )}
+                  <a
+                    href={qr.qr_image_url || '#'}
+                    download={`qr-${qr.id}.png`}
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+                  >
+                    <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-[#171158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </div>
+                  </a>
+                </div>
+                <p className="mt-1 text-xs font-medium text-[#1B1723] truncate text-center">
+                  {qr.page_title || qr.design_name || 'QRコード'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* メインセクション */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 左側: 保存済みURL */}
+        {/* 左側: プライベートQR */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#1B1723]">保存済みURL</h2>
+            <h2 className="text-lg font-bold text-[#1B1723]">プライベートQR</h2>
             <Link
-              href="/dashboard/urls/new"
+              href="/dashboard/private-qr"
               className="text-sm font-semibold text-[#E6A24C] hover:text-[#D4923D] flex items-center gap-1"
             >
+              作成する
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              追加
             </Link>
           </div>
 
-          {Object.keys(urlsByCategory).length > 0 ? (
-            <div className="space-y-4">
-              {Object.entries(urlsByCategory).map(([category, urls]) => (
-                <div key={category} className="bg-white rounded-2xl border border-[#171158]/5 overflow-hidden">
-                  <div className="px-4 py-3 bg-[#FAFBFC] border-b border-[#171158]/5">
-                    <h3 className="text-sm font-semibold text-[#1B1723]">{category}</h3>
-                  </div>
-                  <div className="divide-y divide-[#171158]/5">
-                    {urls?.map((url) => (
-                      <div key={url.id} className="px-4 py-3 flex items-center gap-3 hover:bg-[#FAFBFC] transition-colors">
-                        {url.icon && (
-                          <span className="text-xl">{url.icon}</span>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#1B1723] truncate">{url.name}</p>
-                          <p className="text-xs text-[#1B1723]/50 truncate">{url.url}</p>
-                        </div>
-                        {url.qr_image_url && (
-                          <img src={url.qr_image_url} alt="" className="w-10 h-10 rounded" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-[#171158]/5 p-8 text-center">
-              <div className="w-16 h-16 bg-[#171158]/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-[#171158]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
-                </svg>
-              </div>
-              <p className="text-[#1B1723]/50 mb-4">URLを保存してQRコードを管理しましょう</p>
-              <Link
-                href="/dashboard/urls/new"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[#171158] to-[#1B1723] rounded-xl"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                URLを追加
-              </Link>
-            </div>
-          )}
+          <div className="bg-white rounded-2xl border border-[#171158]/5 p-5">
+            <p className="text-sm text-[#1B1723]/60 mb-4">
+              個人用のQRコードをまとめて管理。SNSや自宅Wi-Fiなど。
+            </p>
 
-          {/* クイック追加 */}
-          <div className="bg-white rounded-2xl border border-[#171158]/5 p-4">
-            <h3 className="text-sm font-semibold text-[#1B1723] mb-3">クイック追加</h3>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { name: '自社サイト', icon: '🌐', category: 'ウェブサイト' },
-                { name: 'Wi-Fi', icon: '📶', category: 'ネットワーク' },
-                { name: 'LINE', icon: '💬', category: 'SNS' },
-                { name: 'Instagram', icon: '📷', category: 'SNS' },
+                { name: '自宅Wi-Fi', icon: WifiIcon, desc: 'ゲスト用' },
+                { name: 'LINE', icon: LineIcon, desc: '友だち追加' },
+                { name: 'Instagram', icon: CameraIcon, desc: 'フォロー' },
+                { name: 'X (Twitter)', icon: XIcon, desc: 'フォロー' },
+                { name: '自社サイト', icon: GlobeIcon, desc: 'ポートフォリオ' },
+                { name: '写真アルバム', icon: CameraIcon, desc: '共有リンク' },
               ].map((item) => (
                 <Link
                   key={item.name}
-                  href={`/dashboard/urls/new?category=${item.category}&name=${item.name}`}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-[#1B1723]/70 bg-[#FAFBFC] rounded-lg hover:bg-[#171158]/5 transition-colors"
+                  href={`/dashboard/private-qr?type=${encodeURIComponent(item.name)}`}
+                  className="flex items-center gap-3 px-3 py-3 bg-[#FAFBFC] rounded-xl hover:bg-[#171158]/5 transition-colors group"
                 >
-                  <span>{item.icon}</span>
-                  {item.name}
+                  <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center border border-[#171158]/5 group-hover:border-[#171158]/10">
+                    <item.icon className="w-5 h-5 text-[#1B1723]/60" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#1B1723]">{item.name}</p>
+                    <p className="text-[10px] text-[#1B1723]/40">{item.desc}</p>
+                  </div>
                 </Link>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* 右側: 名刺ページ作成 */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#1B1723]">デジタル名刺</h2>
-            {!isPaidPlan && (
-              <span className="text-xs font-semibold text-[#E6A24C] bg-[#E6A24C]/10 px-2 py-1 rounded-full">
-                Personal+
-              </span>
-            )}
-          </div>
-
-          <div className="bg-gradient-to-br from-[#171158] to-[#1B1723] rounded-2xl p-6 text-white">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
-                </svg>
+          {/* プライベートプロフィールページ */}
+          <div className="bg-gradient-to-br from-[#171158] to-[#1B1723] rounded-2xl p-5 text-white">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                <UserIcon className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold mb-2">AIでプロフィールページを作成</h3>
-                <p className="text-white/70 text-sm mb-4">
-                  X、Instagram、LINE、YouTubeなど複数のSNSリンクを1つのページにまとめて、QRコードで共有できます。
+                <h3 className="font-bold mb-1">プロフィールページ</h3>
+                <p className="text-white/70 text-xs mb-3">
+                  SNSリンクをまとめた名刺ページを作成
                 </p>
-                {isPaidPlan ? (
-                  <Link
-                    href="/dashboard/profile-card"
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-[#171158] bg-white rounded-xl hover:bg-white/90 transition-colors"
-                  >
-                    作成する
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                ) : (
-                  <Link
-                    href="/dashboard/settings/billing"
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-[#171158] bg-white rounded-xl hover:bg-white/90 transition-colors"
-                  >
-                    プランをアップグレード
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                )}
+                <Link
+                  href="/dashboard/private-qr?tab=profile"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#171158] bg-white rounded-lg hover:bg-white/90"
+                >
+                  作成する
+                </Link>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* サンプルプロフィールカード */}
-          <div className="bg-white rounded-2xl border border-[#171158]/5 p-4">
-            <p className="text-xs text-[#1B1723]/50 mb-3">プレビュー例</p>
-            <div className="bg-gradient-to-br from-[#FAFBFC] to-white rounded-xl p-4 border border-[#171158]/5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#E6A24C] to-[#D4923D] rounded-full flex items-center justify-center text-white font-bold">
-                  U
-                </div>
-                <div>
-                  <p className="font-semibold text-[#1B1723]">ユーザー名</p>
-                  <p className="text-xs text-[#1B1723]/50">@username</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {['X (Twitter)', 'Instagram', 'LINE', 'YouTube'].map((sns) => (
-                  <div key={sns} className="flex items-center gap-2 px-3 py-2 bg-[#FAFBFC] rounded-lg text-sm text-[#1B1723]/70">
-                    <span className="w-5 h-5 bg-[#171158]/10 rounded flex items-center justify-center text-xs">
-                      {sns[0]}
-                    </span>
-                    {sns}
+        {/* 右側: 法人用QR */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-[#1B1723]">法人・ビジネスQR</h2>
+            <Link
+              href="/dashboard/private-qr?tab=business"
+              className="text-sm font-semibold text-[#E6A24C] hover:text-[#D4923D] flex items-center gap-1"
+            >
+              作成する
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-[#171158]/5 p-5">
+            <p className="text-sm text-[#1B1723]/60 mb-4">
+              名刺やパンフレットに使えるビジネス用QRコード。
+            </p>
+
+            <div className="space-y-3">
+              {[
+                { name: '会社名 / 個人名', icon: BuildingIcon, placeholder: '株式会社〇〇 / 山田太郎' },
+                { name: '役職', icon: BriefcaseIcon, placeholder: '代表取締役' },
+                { name: '電話番号', icon: PhoneIcon, placeholder: '03-1234-5678' },
+                { name: 'メールアドレス', icon: EnvelopeIcon, placeholder: 'contact@example.com' },
+                { name: 'Webサイト', icon: GlobeIcon, placeholder: 'https://example.com' },
+                { name: '住所 (Google Maps)', icon: MapPinIcon, placeholder: '東京都渋谷区...' },
+              ].map((item) => (
+                <div
+                  key={item.name}
+                  className="flex items-center gap-3 px-3 py-2 bg-[#FAFBFC] rounded-xl"
+                >
+                  <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-[#171158]/5">
+                    <item.icon className="w-4 h-4 text-[#1B1723]/60" />
                   </div>
-                ))}
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-[#1B1723]">{item.name}</p>
+                    <p className="text-[10px] text-[#1B1723]/30">{item.placeholder}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 法人用名刺ページ */}
+          <div className="bg-gradient-to-br from-[#E6A24C] to-[#D4923D] rounded-2xl p-5 text-white">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                <BuildingIcon className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold mb-1">会社プロフィールページ</h3>
+                <p className="text-white/80 text-xs mb-3">
+                  会社情報をまとめたページをAIで作成
+                </p>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/dashboard/private-qr?tab=business-profile"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#E6A24C] bg-white rounded-lg hover:bg-white/90"
+                  >
+                    作成する
+                  </Link>
+                  {!isPaidPlan && (
+                    <span className="text-[10px] text-white/80 bg-white/20 px-2 py-0.5 rounded">
+                      AI生成は有料
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -274,16 +393,17 @@ export default async function DashboardPage() {
 
       {/* アップグレード誘導（無料プランの場合） */}
       {planName === 'free' && (
-        <div className="bg-[#E6A24C]/10 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-10 h-10 bg-[#E6A24C]/20 rounded-xl flex items-center justify-center shrink-0">
+        <div className="bg-[#FAFBFC] rounded-2xl p-4 flex items-center gap-4 border border-[#171158]/5">
+          <div className="w-10 h-10 bg-[#E6A24C]/10 rounded-xl flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             </svg>
           </div>
           <div className="flex-1">
             <p className="text-sm font-semibold text-[#1B1723]">
-              Personalプラン（¥499/月）でデジタル名刺機能をアンロック
+              PersonalプランでAIプロフィール作成をアンロック
             </p>
+            <p className="text-xs text-[#1B1723]/50">¥499/月から</p>
           </div>
           <Link
             href="/dashboard/settings/billing"

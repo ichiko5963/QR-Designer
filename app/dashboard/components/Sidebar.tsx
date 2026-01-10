@@ -36,6 +36,18 @@ const navigation = [
     exact: true
   },
   {
+    name: '生成したQRコード',
+    href: '/dashboard/qr-codes',
+    icon: QrCodeIcon,
+    badge: null
+  },
+  {
+    name: 'プライベートQR',
+    href: '/dashboard/private-qr',
+    icon: IdCardIcon,
+    badge: null
+  },
+  {
     name: 'アンケート',
     href: '/dashboard/forms',
     icon: ClipboardDocumentListIcon,
@@ -282,108 +294,6 @@ export default function Sidebar({ user, plan }: SidebarProps) {
                 )
               })}
             </ul>
-          </li>
-
-          {/* QRコード履歴 */}
-          <li>
-            <div className="flex items-center justify-between px-2 mb-2">
-              <span className="text-xs font-semibold text-[#1B1723]/40">生成したQRコード</span>
-              {qrHistory.length > 4 && (
-                <button
-                  onClick={() => setShowAllQR(!showAllQR)}
-                  className="text-[10px] text-[#E6A24C] hover:text-[#D4923D]"
-                >
-                  {showAllQR ? '折りたたむ' : 'すべて表示'}
-                </button>
-              )}
-            </div>
-            <ul className="space-y-1">
-              {displayedQRs.length > 0 ? (
-                displayedQRs.map((qr) => (
-                  <li key={qr.id} className="group relative">
-                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#FAFBFC] transition-colors">
-                      {qr.qr_image_url ? (
-                        <img
-                          src={qr.qr_image_url}
-                          alt=""
-                          className="w-8 h-8 rounded object-contain bg-white border border-[#171158]/5"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded bg-[#171158]/5 flex items-center justify-center">
-                          <QrCodeIcon className="w-4 h-4 text-[#171158]/30" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-[#1B1723] truncate">
-                          {qr.page_title || qr.design_name || 'QRコード'}
-                        </p>
-                        <p className="text-[10px] text-[#1B1723]/40 truncate">
-                          {new Date(qr.created_at).toLocaleDateString('ja-JP')}
-                        </p>
-                      </div>
-                      {/* アクションボタン */}
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleDownload(qr)}
-                          className="p-1 text-[#1B1723]/40 hover:text-[#171158] rounded"
-                          title="ダウンロード"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteQR(qr.id)}
-                          disabled={deletingId === qr.id}
-                          className="p-1 text-[#1B1723]/40 hover:text-red-500 rounded disabled:opacity-50"
-                          title="削除"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))
-              ) : (
-                <li className="px-2 py-3 text-center">
-                  <p className="text-xs text-[#1B1723]/40">まだQRコードがありません</p>
-                </li>
-              )}
-            </ul>
-            <Link
-              href="/dashboard/qr-codes"
-              className="flex items-center gap-2 px-2 py-2 mt-1 text-xs text-[#171158] hover:text-[#2A2478] font-semibold transition-colors"
-            >
-              すべてのQRコードを見る
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </li>
-
-          {/* 名刺ページ作成 */}
-          <li>
-            <div className="px-2 mb-2">
-              <span className="text-xs font-semibold text-[#1B1723]/40">プロフィール</span>
-            </div>
-            <Link
-              href={isPaidPlan ? '/dashboard/profile-card' : '/dashboard/settings/billing'}
-              className={`flex items-center gap-2 px-2 py-2 rounded-lg transition-colors ${
-                isActive('/dashboard/profile-card')
-                  ? 'bg-[#171158]/10 text-[#171158]'
-                  : 'text-[#1B1723]/70 hover:bg-[#171158]/5'
-              }`}
-            >
-              <IdCardIcon className="w-5 h-5" />
-              <span className="text-sm font-semibold">名刺ページ作成</span>
-              {!isPaidPlan && (
-                <span className="ml-auto text-[10px] bg-[#E6A24C]/10 text-[#E6A24C] px-1.5 py-0.5 rounded-full">
-                  Personal+
-                </span>
-              )}
-            </Link>
           </li>
 
           {/* 設定セクション */}
