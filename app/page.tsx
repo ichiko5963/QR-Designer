@@ -15,61 +15,36 @@ const defaultCustomization: Customization = {
   cornerRadius: 0,
   logoSize: 18,
   logoBackground: true,
-  errorCorrectionLevel: 'M',
+  errorCorrectionLevel: 'H',
   dotStyle: 'square',
   outerShape: 'square',
   frameEnabled: false,
-  frameText: 'スキャンして！',
-  frameTemplate: 'outline',
+  frameText: '',
+  frameTemplate: 'none',
   frameGradientEnabled: false,
   frameGradientStyle: 'linear',
-  frameColor1: '#6B4CFB',
-  frameColor2: '#8C6CFF',
-  frameBackgroundTransparent: false,
+  frameColor1: '#000000',
+  frameColor2: '#000000',
+  frameBackgroundTransparent: true,
   frameBackgroundGradientEnabled: false,
   frameBackgroundGradientStyle: 'linear',
   frameBackground1: '#ffffff',
-  frameBackground2: '#f2f2ff',
+  frameBackground2: '#ffffff',
   patternStyle: 'square',
   patternGradientEnabled: false,
   patternGradientStyle: 'linear',
   patternColor1: '#000000',
-  patternColor2: '#222222',
+  patternColor2: '#000000',
   patternBackgroundTransparent: false,
   patternBackgroundGradientEnabled: false,
   patternBackgroundGradientStyle: 'linear',
   patternBackground1: '#ffffff',
-  patternBackground2: '#f5f5f5',
-  cornerFrameStyle: 'outline',
+  patternBackground2: '#ffffff',
+  cornerFrameStyle: 'square',
   cornerDotStyle: 'square'
 }
 
 export default function Home() {
-  const frameTemplates = [
-    'none',
-    'outline',
-    'double',
-    'band-bottom',
-    'band-top',
-    'ticket',
-    'dotted',
-    'badge',
-    'ribbon-left',
-    'ribbon-right',
-    'shadow',
-    'glow',
-    'minimal'
-  ]
-
-  const patternStyles: { key: Customization['patternStyle'] | Customization['dotStyle']; label: string }[] = [
-    { key: 'square', label: '標準四角' },
-    { key: 'round', label: '角丸' },
-    { key: 'rounder', label: 'より丸' },
-    { key: 'dot', label: 'ドット' },
-    { key: 'heart', label: 'ハート' },
-    { key: 'diamond', label: '菱形' }
-  ]
-
   const [url, setUrl] = useState('')
   const [analysis, setAnalysis] = useState<URLAnalysis | null>(null)
   const [designs, setDesigns] = useState<Design[]>([])
@@ -119,11 +94,21 @@ export default function Home() {
       }
 
       const analyzeData = await analyzeResponse.json()
-      setAnalysis(analyzeData.data)
+      const analysisResult = analyzeData.data
+      setAnalysis(analysisResult)
       // ロゴはファビコンを優先して埋め込む
-      setLogoUrl(analyzeData.data.favicon || null)
+      setLogoUrl(analysisResult.favicon || null)
       setLogoMode('auto')
       setUploadedLogo(null)
+      
+      // サイトから抽出した色をカスタマイズに反映
+      const siteColors = analysisResult.colors || ['#000000', '#333333', '#666666']
+      setCustomization(prev => ({
+        ...prev,
+        patternColor1: siteColors[0] || '#000000',
+        patternColor2: siteColors[1] || siteColors[0] || '#333333',
+        patternGradientEnabled: true
+      }))
 
       // Step 2: デザイン生成
       const designsResponse = await fetch('/api/generate-designs', {
@@ -153,15 +138,16 @@ export default function Home() {
     }
   }
 
-  const generateQRCode = async (design: Design, saveToHistory: boolean, inlineLogo?: string | null) => {
+  const generateQRCode = async (design: Design, saveToHistory: boolean, inlineLogo?: string | null, overrideCustomization?: Customization) => {
     if (!design || !url) return
 
     setIsLoading(true)
     try {
+      const currentCustomization = overrideCustomization || customization
       const payload: Record<string, unknown> = {
         url,
         design,
-        customization,
+        customization: currentCustomization,
         saveToHistory
       }
       if (logoMode === 'upload' && (inlineLogo || uploadedLogo)) {
@@ -193,7 +179,17 @@ export default function Home() {
 
   const handleSelectDesign = async (design: Design) => {
     setSelectedDesign(design)
-    await generateQRCode(design, false)
+    // デザインの色をカスタマイズに反映
+    const newCustomization: Customization = {
+      ...customization,
+      patternColor1: design.fgColor || customization.patternColor1,
+      patternColor2: design.bgColor !== '#ffffff' && design.bgColor !== '#FFFFFF' 
+        ? design.bgColor 
+        : customization.patternColor2,
+      patternGradientEnabled: true
+    }
+    setCustomization(newCustomization)
+    await generateQRCode(design, false, null, newCustomization)
   }
 
   const handleLogoUpload = async (file: File) => {
@@ -213,23 +209,6 @@ export default function Home() {
       }
     }
     reader.readAsDataURL(file)
-  }
-
-  const handleDotStyleChange = async (style: Customization['dotStyle']) => {
-    await applyCustomizationAndRefresh((prev) => ({ ...prev, dotStyle: style, patternStyle: style }))
-  }
-
-  const handleShapeChange = async (shape: 'square' | 'round') => {
-    const radius = shape === 'round' ? 18 : 0
-    await applyCustomizationAndRefresh((prev) => ({ ...prev, cornerRadius: radius, outerShape: shape }))
-  }
-
-  const handleSwapPatternColors = async () => {
-    await applyCustomizationAndRefresh((prev) => ({
-      ...prev,
-      patternColor1: prev.patternBackground1,
-      patternBackground1: prev.patternColor1
-    }))
   }
 
   const handleConfirm = () => {
@@ -295,186 +274,6 @@ export default function Home() {
                   </p>
                 </div>
 
-                {/* A) フレーム */}
-                <section className="space-y-3">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-700">フレーム</div>
-                    <p className="text-xs text-gray-500">
-                      フレームを使うとQRコードが目立ち、より多くのスキャンを促すことができます。
-                    </p>
-                  </div>
-                  <div className="flex gap-2 flex-wrap items-center">
-                    <button
-                      onClick={async () =>
-                        await applyCustomizationAndRefresh((prev) => ({ ...prev, frameEnabled: !prev.frameEnabled }))
-                      }
-                      className={`px-3 py-2 text-sm rounded border ${
-                        customization.frameEnabled
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                      }`}
-                    >
-                      {customization.frameEnabled ? 'フレームON' : 'フレームOFF'}
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <div className="flex gap-2 min-w-full">
-                      {frameTemplates.map((tmpl) => (
-                        <button
-                          key={tmpl}
-                          onClick={async () =>
-                            await applyCustomizationAndRefresh((prev) => ({ ...prev, frameTemplate: tmpl }))
-                          }
-                          className={`min-w-[88px] h-20 rounded-lg border flex items-center justify-center text-xs ${
-                            customization.frameTemplate === tmpl
-                              ? 'border-purple-500 ring-2 ring-purple-200'
-                              : 'border-gray-200'
-                          }`}
-                        >
-                          {tmpl === 'none' ? 'なし' : tmpl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600">フレームテキスト</label>
-                    <input
-                      value={customization.frameText || ''}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({ ...prev, frameText: e.target.value }))
-                      }
-                      className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
-                      placeholder="スキャンして！"
-                    />
-                    <span className="text-gray-400 text-sm">✎</span>
-                  </div>
-                </section>
-
-                {/* B) フレームカラー */}
-                <section className="space-y-3">
-                  <div className="text-sm font-semibold text-gray-700">フレームカラー</div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">グラデーションのフレームカラーを使う</label>
-                    <input
-                      type="checkbox"
-                      checked={!!customization.frameGradientEnabled}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({
-                          ...prev,
-                          frameGradientEnabled: e.target.checked
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">グラデーションスタイル</label>
-                    <select
-                      className="border rounded px-2 py-1 text-sm"
-                      value={customization.frameGradientStyle || 'linear'}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({
-                          ...prev,
-                          frameGradientStyle: e.target.value as any
-                        }))
-                      }
-                    >
-                      <option value="linear">線形</option>
-                      <option value="radial">放射</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { label: 'フレームカラー-1', key: 'frameColor1', value: customization.frameColor1 || '#000000' },
-                      { label: 'フレームカラー-2', key: 'frameColor2', value: customization.frameColor2 || '#2F6BFD' }
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center gap-2">
-                        <button
-                          className="h-8 w-8 rounded border"
-                          style={{ backgroundColor: item.value }}
-                          onClick={() => {}}
-                          aria-label={item.label}
-                        />
-                        <input
-                          value={item.value}
-                          onChange={async (e) =>
-                            await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
-                          }
-                          className="flex-1 rounded border px-2 py-1 text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* C) フレーム背景色 */}
-                <section className="space-y-3">
-                  <div className="text-sm font-semibold text-gray-700">フレームの背景色</div>
-                  <label className="flex items-center gap-2 text-xs text-gray-600">
-                    <input
-                      type="checkbox"
-                      checked={!!customization.frameBackgroundTransparent}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({
-                          ...prev,
-                          frameBackgroundTransparent: e.target.checked
-                        }))
-                      }
-                    />
-                    透明な背景
-                  </label>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">グラデーションの背景色を使う</label>
-                    <input
-                      type="checkbox"
-                      checked={!!customization.frameBackgroundGradientEnabled}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({
-                          ...prev,
-                          frameBackgroundGradientEnabled: e.target.checked
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">グラデーションスタイル</label>
-                    <select
-                      className="border rounded px-2 py-1 text-sm"
-                      value={customization.frameBackgroundGradientStyle || 'linear'}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({
-                          ...prev,
-                          frameBackgroundGradientStyle: e.target.value as any
-                        }))
-                      }
-                    >
-                      <option value="linear">線形</option>
-                      <option value="radial">放射</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { label: '背景色1', key: 'frameBackground1', value: customization.frameBackground1 || '#ffffff' },
-                      { label: '背景色2', key: 'frameBackground2', value: customization.frameBackground2 || '#f2f2f2' }
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center gap-2">
-                        <button
-                          className="h-8 w-8 rounded border"
-                          style={{ backgroundColor: item.value }}
-                          onClick={() => {}}
-                          aria-label={item.label}
-                        />
-                        <input
-                          value={item.value}
-                          onChange={async (e) =>
-                            await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
-                          }
-                          className="flex-1 rounded border px-2 py-1 text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
                 {/* ロゴ設定 */}
                 <section className="space-y-2">
                   <div className="text-sm font-semibold text-gray-700">ロゴ設定</div>
@@ -489,7 +288,7 @@ export default function Home() {
                             : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
                         }`}
                       >
-                        {mode === 'auto' ? '自動(favicon)' : 'アップロード'}
+                        {mode === 'auto' ? '自動' : 'アップロード'}
                       </button>
                     ))}
                   </div>
@@ -509,35 +308,24 @@ export default function Home() {
                   )}
                 </section>
 
-                {/* D) QRコードパターン */}
+                {/* グラデーション設定 */}
                 <section className="space-y-3">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-700">QRコードパターン</div>
-                    <p className="text-xs text-gray-500">QRコードのパターンを選択し、色を選びます。</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {patternStyles.map((p) => (
-                      <button
-                        key={p.key}
-                        onClick={async () =>
-                          await applyCustomizationAndRefresh((prev) => ({
-                            ...prev,
-                            patternStyle: p.key as any,
-                            dotStyle: p.key as any
-                          }))
-                        }
-                        className={`h-16 rounded-lg border text-xs flex items-center justify-center ${
-                          customization.patternStyle === p.key || customization.dotStyle === p.key
-                            ? 'border-purple-500 ring-2 ring-purple-200'
-                            : 'border-gray-200'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="text-sm font-semibold text-gray-700">カラー設定</div>
+                  {analysis && (
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                      <span className="text-xs text-gray-600">サイトから抽出した色:</span>
+                      {analysis.colors.map((color, i) => (
+                        <div
+                          key={i}
+                          className="w-6 h-6 rounded border border-gray-300"
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">グラデーションパターンカラーを使用</label>
+                    <label className="text-xs text-gray-600">グラデーションを使用</label>
                     <input
                       type="checkbox"
                       checked={!!customization.patternGradientEnabled}
@@ -549,132 +337,7 @@ export default function Home() {
                       }
                     />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleSwapPatternColors}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-purple-700 border border-purple-200 rounded"
-                    >
-                      ⟳ 入替
-                    </button>
-                    <span className="text-xs text-gray-500">柄色と背景色をスワップ</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { label: '柄の色1', key: 'patternColor1', value: customization.patternColor1 || '#000000' },
-                      { label: '柄の色2', key: 'patternColor2', value: customization.patternColor2 || '#222222' }
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center gap-2">
-                        <button
-                          className="h-8 w-8 rounded border"
-                          style={{ backgroundColor: item.value }}
-                          onClick={() => {}}
-                          aria-label={item.label}
-                        />
-                        <input
-                          value={item.value}
-                          onChange={async (e) =>
-                            await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
-                          }
-                          className="flex-1 rounded border px-2 py-1 text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">透明な背景</label>
-                    <input
-                      type="checkbox"
-                      checked={!!customization.patternBackgroundTransparent}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({
-                          ...prev,
-                          patternBackgroundTransparent: e.target.checked
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">グラデーションの背景色を使う</label>
-                    <input
-                      type="checkbox"
-                      checked={!!customization.patternBackgroundGradientEnabled}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({
-                          ...prev,
-                          patternBackgroundGradientEnabled: e.target.checked
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { label: '背景色1', key: 'patternBackground1', value: customization.patternBackground1 || '#ffffff' },
-                      { label: '背景色2', key: 'patternBackground2', value: customization.patternBackground2 || '#f5f5f5' }
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center gap-2">
-                        <button
-                          className="h-8 w-8 rounded border"
-                          style={{ backgroundColor: item.value }}
-                          onClick={() => {}}
-                          aria-label={item.label}
-                        />
-                        <input
-                          value={item.value}
-                        onChange={async (e) =>
-                          await applyCustomizationAndRefresh((prev) => ({ ...prev, [item.key]: e.target.value }))
-                        }
-                          className="flex-1 rounded border px-2 py-1 text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
                 </section>
-
-                {/* E) QRコードコーナー */}
-                <section className="space-y-3">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-700">QRコードコーナー</div>
-                    <p className="text-xs text-gray-500">QRコードの角のスタイルを選択してください</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded">
-                    {(['square', 'round'] as const).map((shape) => (
-                      <button
-                        key={shape}
-                        onClick={() => handleShapeChange(shape)}
-                        className={`h-14 rounded border text-xs ${
-                          (shape === 'round' && customization.cornerRadius > 0) ||
-                          (shape === 'square' && customization.cornerRadius === 0)
-                            ? 'border-purple-500 ring-2 ring-purple-200'
-                            : 'border-gray-200'
-                        }`}
-                      >
-                        {shape === 'square' ? '角あり' : 'ラウンド'}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-600">フレーム周囲のドットの色</label>
-                    <input
-                      value={customization.patternColor1 || '#000000'}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({ ...prev, patternColor1: e.target.value }))
-                      }
-                      className="rounded border px-2 py-1 text-sm"
-                    />
-                    <label className="text-xs text-gray-600">コーナードットの色</label>
-                    <input
-                      value={customization.patternBackground1 || '#000000'}
-                      onChange={async (e) =>
-                        await applyCustomizationAndRefresh((prev) => ({ ...prev, patternBackground1: e.target.value }))
-                      }
-                      className="rounded border px-2 py-1 text-sm"
-                    />
-                  </div>
-                </section>
-
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
-                  お忘れなく！背景とコードのコントラストを高める配色をおすすめします。
-                </div>
               </div>
 
               <DesignGrid

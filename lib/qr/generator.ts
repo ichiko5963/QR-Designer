@@ -35,12 +35,7 @@ export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
     palette
   })
 
-  qrBuffer = await composeFrameIfAny({
-    qrBuffer,
-    customization,
-    palette,
-    size: customization.size
-  })
+
   
   // 角の丸みを適用（maskで丸める）
   if (customization.cornerRadius > 0) {
@@ -70,77 +65,50 @@ export async function generateQRCodeAsDataURL(
 
 function generateStyledSvg(
   url: string,
-  design: Design,
+  _design: Design,
   customization: Customization,
-  palette: MotifPalette
+  _palette: MotifPalette
 ): string {
-  const qr = QRCode.create(url, { errorCorrectionLevel: customization.errorCorrectionLevel })
+  const qr = QRCode.create(url, { errorCorrectionLevel: 'H' })
   const moduleCount = qr.modules.size
-  const cellSize = customization.size / moduleCount
-  const uid = `qr-${Math.random().toString(36).slice(2, 8)}`
-  const motifKey = motifShapeKey(design.motifKeyword)
-  const patternFill = getPatternColor(customization, palette, uid)
-  const { fill: backgroundColor, defs: backgroundDefs } = getPatternBackgroundFill(
-    customization,
-    design,
-    uid,
-    palette
-  )
-  const accentColor = sanitizeHex(
-    palette.highlight,
-    adjustColor(patternFill.baseColor || patternFill.fill, -30)
-  )
-  const shadow = getShadowDef(design, uid, patternFill.baseColor || patternFill.fill)
-  const motifOverlay = createMotifOverlay({
-    keyword: design.motifKeyword,
-    size: customization.size,
-    palette
-  })
+  const margin = 4
+  const cellSize = customization.size / (moduleCount + margin * 2)
+  
+  const color1 = sanitizeHex(customization.patternColor1 || '#000000', '#000000')
+  const color2 = sanitizeHex(customization.patternColor2 || color1, color1)
+  const useGradient = customization.patternGradientEnabled && color1 !== color2
+  const bgColor = '#ffffff'
+  
+  const gradientId = 'qr-gradient'
+  const gradientDef = useGradient ? `
+    <defs>
+      <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${color2};stop-opacity:1" />
+      </linearGradient>
+    </defs>
+  ` : ''
+  
+  const fillColor = useGradient ? `url(#${gradientId})` : color1
   const modules: string[] = []
 
   for (let row = 0; row < moduleCount; row++) {
     for (let col = 0; col < moduleCount; col++) {
       if (!qr.modules.get(row, col)) continue
-      if (isFinderPattern(row, col, moduleCount)) continue
-
+      
+      const x = (col + margin) * cellSize
+      const y = (row + margin) * cellSize
       modules.push(
-        createModuleElement({
-          x: col * cellSize,
-          y: row * cellSize,
-          size: cellSize,
-          style: (customization.patternStyle as Customization['dotStyle']) || customization.dotStyle,
-          color: patternFill.baseColor || patternFill.fill,
-          gradientFill: patternFill.fillGradient,
-          motif: motifKey,
-          row,
-          col
-        })
+        `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${fillColor}" />`
       )
     }
   }
 
-  const finderPatterns = createFinderPatterns({
-    cellSize,
-    moduleCount,
-    style: (customization.cornerDotStyle as Design['cornerStyle']) || design.cornerStyle,
-    primary: patternFill.baseColor || patternFill.fill,
-    secondary: backgroundColor,
-    accent: accentColor
-  })
-
-  const defs = [backgroundDefs, patternFill.defs, shadow?.definition].filter(Boolean).join('')
-  const filterAttr = shadow ? `filter="url(#${shadow.id})"` : ''
-  const backgroundElement = `<rect width="100%" height="100%" fill="${backgroundColor}" />`
-
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${customization.size}" height="${customization.size}" viewBox="0 0 ${customization.size} ${customization.size}">
-      <defs>${defs}</defs>
-      ${backgroundElement}
-      ${motifOverlay}
-      <g ${filterAttr}>
-        ${finderPatterns}
-        ${modules.join('')}
-      </g>
+      ${gradientDef}
+      <rect width="100%" height="100%" fill="${bgColor}" />
+      ${modules.join('')}
     </svg>
   `
 }
@@ -195,23 +163,13 @@ function createModuleElement({
     return `<path d="${path}" fill="${gradientFill || color}" />`
   }
 
-  if (style === 'diamond' || style === 'x') {
+  if (style === 'diamond') {
     const cx = x + size / 2
     const cy = y + size / 2
     const r = drawSize / 2
-    if (style === 'diamond') {
-      return `<polygon points="${cx} ${cy - r}, ${cx + r} ${cy}, ${cx} ${cy + r}, ${cx - r} ${cy}" fill="${
-        gradientFill || color
-      }" />`
-    }
-    return `
-      <rect x="${cx - r / 6}" y="${cy - r}" width="${r / 3}" height="${drawSize}" transform="rotate(45 ${cx} ${cy})" fill="${
+    return `<polygon points="${cx} ${cy - r}, ${cx + r} ${cy}, ${cx} ${cy + r}, ${cx - r} ${cy}" fill="${
       gradientFill || color
-    }" />
-      <rect x="${cx - r / 6}" y="${cy - r}" width="${r / 3}" height="${drawSize}" transform="rotate(-45 ${cx} ${cy})" fill="${
-      gradientFill || color
-    }" />
-    `
+    }" />`
   }
 
   if (style === 'rounder') {
@@ -506,13 +464,14 @@ async function composeFrameIfAny({
   const text = (customization.frameText || '').trim()
   const template = customization.frameTemplate || 'outline'
   const gradientEnabled = customization.frameGradientEnabled
-  const frameColorBase = sanitizeHex(customization.frameColor1 || customization.frameColor || palette.primary)
-  const frameColorSecond = sanitizeHex(customization.frameColor2 || adjustColor(frameColorBase, -18))
+  const frameColorBase = sanitizeHex(customization.frameColor1 || customization.frameColor || palette.primary, palette.primary)
+  const frameColorSecond = sanitizeHex(customization.frameColor2 || adjustColor(frameColorBase, -18), frameColorBase)
   const frameBackgroundBase = customization.frameBackgroundTransparent
     ? 'none'
-    : sanitizeHex(customization.frameBackground1 || customization.frameBackground || '#ffffff')
+    : sanitizeHex(customization.frameBackground1 || customization.frameBackground || '#ffffff', '#ffffff')
   const frameBackgroundSecond = sanitizeHex(
-    customization.frameBackground2 || adjustColor(frameBackgroundBase, -12)
+    customization.frameBackground2 || adjustColor(frameBackgroundBase, -12),
+    '#ffffff'
   )
 
   const frameWidth = size + padding * 2

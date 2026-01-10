@@ -16,7 +16,7 @@ export interface Customization {
   logoSize: number
   logoBackground: boolean
   errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H'
-  dotStyle: 'square' | 'rounded' | 'dots'
+  dotStyle: 'square' | 'rounded' | 'round' | 'rounder' | 'dots' | 'dot' | 'heart' | 'diamond'
   frameEnabled?: boolean
   frameText?: string
   frameColor?: string
