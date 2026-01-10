@@ -194,7 +194,7 @@ export default function QRCodesPage() {
         </div>
         {tab === 'history' ? (
           <Link
-            href="/"
+            href="/dashboard/generate"
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-[#E6A24C] to-[#D4923D] rounded-xl hover:from-[#F0B86E] hover:to-[#E6A24C] shadow-lg shadow-[#E6A24C]/30 transition-all"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -285,7 +285,7 @@ export default function QRCodesPage() {
                 最初のQRコードを作成してみましょう
               </p>
               <Link
-                href="/"
+                href="/dashboard/generate"
                 className="inline-flex items-center gap-2 px-6 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#171158] to-[#1B1723] rounded-xl hover:from-[#2A2478] hover:to-[#171158] shadow-lg shadow-[#171158]/20 transition-all"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

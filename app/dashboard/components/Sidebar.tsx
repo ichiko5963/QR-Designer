@@ -46,11 +46,6 @@ const navigation = [
   }
 ]
 
-const settingsNavigation = [
-  { name: '設定', href: '/dashboard/settings', icon: Cog6ToothIcon },
-  { name: '課金プラン', href: '/dashboard/settings/billing', icon: CreditCardIcon }
-]
-
 function HomeIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -170,7 +165,7 @@ export default function Sidebar({ user, plan }: SidebarProps) {
 
       {/* 新規作成ボタン */}
       <Link
-        href="/"
+        href="/dashboard/generate"
         className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#E6A24C] to-[#D4923D] rounded-xl hover:from-[#F0B86E] hover:to-[#E6A24C] shadow-lg shadow-[#E6A24C]/30 hover:shadow-xl hover:shadow-[#E6A24C]/40 transition-all hover:-translate-y-0.5"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -220,7 +215,15 @@ export default function Sidebar({ user, plan }: SidebarProps) {
           <li className="mt-auto">
             <div className="text-xs font-semibold text-[#1B1723]/40 mb-2 px-2">設定</div>
             <ul className="-mx-2 space-y-1">
-              {settingsNavigation.map((item) => {
+              {[
+                { name: '設定', href: '/dashboard/settings', icon: Cog6ToothIcon, highlight: false },
+                {
+                  name: plan === 'free' ? 'プランをアップグレード' : 'プラン管理',
+                  href: '/dashboard/settings/billing',
+                  icon: CreditCardIcon,
+                  highlight: plan === 'free'
+                }
+              ].map((item) => {
                 const active = isActive(item.href, item.href === '/dashboard/settings')
                 return (
                   <li key={item.name}>
@@ -229,7 +232,9 @@ export default function Sidebar({ user, plan }: SidebarProps) {
                       className={`group flex gap-x-3 rounded-xl p-3 text-sm font-semibold leading-6 transition-all ${
                         active
                           ? 'bg-[#171158]/10 text-[#171158]'
-                          : 'text-[#1B1723]/60 hover:bg-[#171158]/5 hover:text-[#1B1723]'
+                          : item.highlight
+                            ? 'text-[#E6A24C] bg-[#E6A24C]/10 hover:bg-[#E6A24C]/20'
+                            : 'text-[#1B1723]/60 hover:bg-[#171158]/5 hover:text-[#1B1723]'
                       }`}
                     >
                       <item.icon className="h-5 w-5 shrink-0" />
