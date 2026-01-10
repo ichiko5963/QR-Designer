@@ -518,12 +518,10 @@ async function extractDominantColorsFromImage(imageBuffer: Buffer): Promise<Extr
       const brightness = (r * 299 + g * 587 + b * 114) / 1000
       const saturation = max - min
 
-      // 薄すぎる色（brightness > 180）は完全にスキップ
-      // 灰色っぽい色（saturation < 30）もスキップ
-      // 暗すぎる色（brightness < 40）もスキップ
-      // RGB全てが180以上も薄すぎるのでスキップ
-      if (saturation < 30 || brightness < 40 || brightness > 180) continue
-      if (r >= 180 && g >= 180 && b >= 180) continue
+      // 薄い色やグレーは除外するが、明るめのブランドカラーは残す
+      if (saturation < 20 || brightness < 30) continue
+      if (brightness > 240) continue
+      if (r >= 240 && g >= 240 && b >= 240) continue
 
       // 色を量子化（16段階に丸める）
       const qr = Math.round(r / 16) * 16

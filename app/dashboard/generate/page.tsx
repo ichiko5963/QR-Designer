@@ -161,17 +161,22 @@ export default function GeneratePage() {
     const presets: ColorPreset[] = []
     const filteredLogoColors = logoColors.filter(c => !isWhiteColor(c))
     const filteredSiteColors = siteColors.filter(c => !isWhiteColor(c))
-    const allColors = [...filteredLogoColors, ...filteredSiteColors].filter(
+    const combined = [...filteredLogoColors, ...filteredSiteColors].filter(
       (c, i, arr) => arr.findIndex(x => x.toLowerCase() === c.toLowerCase()) === i
     )
 
-    if (allColors.length < 2) {
-      allColors.push('#171158', '#E6A24C', '#1B1723')
+    const gradientSource =
+      filteredLogoColors.length >= 2
+        ? filteredLogoColors
+        : combined
+
+    if (gradientSource.length < 2) {
+      gradientSource.push('#171158', '#E6A24C', '#1B1723')
     }
 
-    const color1 = allColors[0] || '#171158'
-    const color2 = allColors[1] || shiftHexColor(color1, -20)
-    const color3 = allColors[2] || shiftHexColor(color2, 20)
+    const color1 = gradientSource[0] || '#171158'
+    const color2 = gradientSource[1] || shiftHexColor(color1, -20)
+    const color3 = gradientSource[2] || shiftHexColor(color2, 20)
 
     const gradientVariations: Array<{
       id: string

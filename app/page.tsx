@@ -203,18 +203,22 @@ export default function Home() {
     const filteredSiteColors = siteColors.filter(c => !isWhiteColor(c))
 
     // 使用可能な色を収集（グラデーション用）
-    const allColors = [...filteredLogoColors, ...filteredSiteColors].filter(
+    const combined = [...filteredLogoColors, ...filteredSiteColors].filter(
       (c, i, arr) => arr.findIndex(x => x.toLowerCase() === c.toLowerCase()) === i
     )
 
-    // グラデーション用の色がない場合はデフォルト
-    if (allColors.length < 2) {
-      allColors.push('#171158', '#E6A24C', '#1B1723')
+    const gradientSource =
+      filteredLogoColors.length >= 2
+        ? filteredLogoColors
+        : combined
+
+    if (gradientSource.length < 2) {
+      gradientSource.push('#171158', '#E6A24C', '#1B1723')
     }
 
-    const color1 = allColors[0] || '#171158'
-    const color2 = allColors[1] || shiftHexColor(color1, -20)
-    const color3 = allColors[2] || shiftHexColor(color2, 20)
+    const color1 = gradientSource[0] || '#171158'
+    const color2 = gradientSource[1] || shiftHexColor(color1, -20)
+    const color3 = gradientSource[2] || shiftHexColor(color2, 20)
 
     // グラデーションバリエーション（最初に配置）
     const gradientVariations: Array<{
