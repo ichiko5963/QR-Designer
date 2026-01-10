@@ -14,7 +14,7 @@ interface AIDesignResponse {
 }
 
 export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> {
-  const model = getGeminiModel('gemini-1.5-flash')
+  const model = getGeminiModel()
   const primaryColor = analysis.mainColor || analysis.designSuggestion.primaryColor
   const palette = buildPalette(primaryColor, analysis.colors)
   const motifKeyword = deriveMotifKeyword(analysis)

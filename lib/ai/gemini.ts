@@ -10,7 +10,7 @@ export function getGeminiClient() {
   return new GoogleGenerativeAI(apiKey)
 }
 
-export function getGeminiModel(modelName: string = 'gemini-1.5-pro') {
+export function getGeminiModel(modelName: string = 'gemini-2.0-flash') {
   const client = getGeminiClient()
   return client.getGenerativeModel({ model: modelName })
 }
