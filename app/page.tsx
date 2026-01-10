@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import URLInput from './components/URLInput'
 import DesignGrid from './components/DesignGrid'
 import QRPreview from './components/QRPreview'
@@ -125,6 +127,9 @@ export default function Home() {
   const [resetKey, setResetKey] = useState(0)
   const router = useRouter()
 
+  // ログインチェックはAuthButtonコンポーネントで処理されるため、ここでは削除
+  // これにより、ログイン画面（AuthButton）が常に表示される
+
   // 状態を完全にリセット
   const handleReset = () => {
     setUrl('')
@@ -231,6 +236,8 @@ export default function Home() {
       generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null)
     }
   }, [selectedDesign]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 認証チェックとリダイレクトはAuthButtonコンポーネントで処理される
 
   const handleAnalyze = async (inputUrl: string) => {
     // 全状態を確実にリセット
@@ -528,6 +535,29 @@ export default function Home() {
                 </p>
               </div>
             </button>
+
+            {/* Navigation Links */}
+            <nav className="hidden md:flex items-center gap-6">
+              <Link
+                href="/"
+                className="text-sm font-medium text-[#1B1723]/60 hover:text-[#171158] transition-colors"
+              >
+                ホーム
+              </Link>
+              <Link
+                href="/pricing"
+                className="text-sm font-medium text-[#1B1723]/60 hover:text-[#171158] transition-colors"
+              >
+                プラン一覧
+              </Link>
+              <Link
+                href="/legal/tokushoho"
+                className="text-sm font-medium text-[#1B1723]/60 hover:text-[#171158] transition-colors"
+              >
+                特定商取引法
+              </Link>
+            </nav>
+
             <AuthButton />
           </div>
         </div>
@@ -551,7 +581,7 @@ export default function Home() {
               <div className="text-center mb-16">
                 {/* Badge */}
                 <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#171158]/5 to-[#E6A24C]/10 rounded-full mb-8">
-                  <div className="w-2 h-2 rounded-full bg-[#E6A24C] animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-[#E6A24C]" />
                   <span className="text-sm font-medium text-[#171158]">
                     AIがURLを解析し、最適なQRコードを自動生成
                   </span>
@@ -562,7 +592,7 @@ export default function Home() {
                   URLを入力するだけで
                   <br />
                   <span className="bg-gradient-to-r from-[#171158] via-[#171158] to-[#E6A24C] bg-clip-text text-transparent">
-                    ブランドに最適なQRコード
+                    ブランドに最適なQRコードを生成
                   </span>
                 </h2>
 
@@ -582,8 +612,7 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                   <div className="flex items-center gap-2 px-4 py-2 bg-[#171158]/5 rounded-full">
-                    <div className="w-3 h-3 rounded-full bg-gradient-to-r from-[#171158] to-[#E6A24C]" />
-                    <span className="text-sm text-[#171158] font-medium">AI解析</span>
+                    <span className="text-sm text-[#171158] font-medium">AIがURLを解析</span>
                   </div>
                   <svg className="w-4 h-4 text-[#1B1723]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -647,56 +676,97 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Use Cases - Above How it works */}
-              <div className="bg-gradient-to-br from-[#171158] to-[#1B1723] rounded-3xl p-8 md:p-12 text-white mb-16">
-                <h3 className="text-2xl font-bold mb-8 text-center">こんな方におすすめ</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  {[
-                    {
-                      icon: (
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      ),
-                      title: 'マーケター',
-                      desc: 'キャンペーン用QR'
-                    },
-                    {
-                      icon: (
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                        </svg>
-                      ),
-                      title: 'デザイナー',
-                      desc: 'ブランドQR作成'
-                    },
-                    {
-                      icon: (
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      ),
-                      title: '起業家',
-                      desc: 'プロダクト紹介'
-                    },
-                    {
-                      icon: (
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                      ),
-                      title: '教育機関',
-                      desc: '資料共有用QR'
-                    }
-                  ].map((item, i) => (
-                    <div key={i} className="text-center">
-                      <div className="w-14 h-14 mx-auto mb-3 bg-white/10 rounded-xl flex items-center justify-center text-white/80">
-                        {item.icon}
+              {/* Animated Demo Section */}
+              <div className="bg-gradient-to-br from-[#171158] to-[#1B1723] rounded-3xl p-8 md:p-12 text-white mb-16 overflow-hidden">
+                <h3 className="text-2xl font-bold mb-4 text-center">AIが瞬時にQRコードを生成</h3>
+                <p className="text-white/70 text-center mb-10 max-w-xl mx-auto">
+                  URLを入力するだけで、AIがサイトを解析し、あなたにぴったりのQRコードを自動生成します
+                </p>
+
+                {/* Animated Flow */}
+                <div className="relative max-w-4xl mx-auto">
+                  {/* Connection Lines with flowing dots */}
+                  <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-[#E6A24C]/0 via-[#E6A24C]/30 to-[#E6A24C]/0 -translate-y-1/2 hidden md:block" />
+
+                  {/* Flowing data dots */}
+                  <div className="absolute top-1/2 left-[20%] -translate-y-1/2 hidden md:flex gap-3">
+                    <div className="w-2 h-2 bg-[#E6A24C] rounded-full animate-bounce-dot-1" />
+                    <div className="w-2 h-2 bg-[#E6A24C] rounded-full animate-bounce-dot-2" />
+                    <div className="w-2 h-2 bg-[#E6A24C] rounded-full animate-bounce-dot-3" />
+                  </div>
+                  <div className="absolute top-1/2 right-[20%] -translate-y-1/2 hidden md:flex gap-3">
+                    <div className="w-2 h-2 bg-[#E6A24C] rounded-full animate-bounce-dot-1" />
+                    <div className="w-2 h-2 bg-[#E6A24C] rounded-full animate-bounce-dot-2" />
+                    <div className="w-2 h-2 bg-[#E6A24C] rounded-full animate-bounce-dot-3" />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+                    {/* Step 1: URL Input */}
+                    <div className="flex flex-col items-center text-center group">
+                      <div className="relative mb-4">
+                        <div className="w-24 h-24 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20 group-hover:scale-105 transition-transform duration-300">
+                          <div className="opacity-0 animate-pop-1">
+                            <svg className="w-12 h-12 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-[#E6A24C] rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
                       </div>
-                      <h4 className="font-semibold text-white mb-1">{item.title}</h4>
-                      <p className="text-sm text-white/60">{item.desc}</p>
+                      <h4 className="font-bold text-lg mb-2">URLを入力</h4>
+                      <p className="text-white/60 text-sm">サイトのURLをペーストするだけ</p>
+                      <div className="mt-4 px-4 py-2 bg-white/5 rounded-lg border border-white/10 text-sm text-white/50 font-mono">
+                        https://example.com
+                      </div>
                     </div>
-                  ))}
+
+                    {/* Step 2: AI Analysis */}
+                    <div className="flex flex-col items-center text-center group">
+                      <div className="relative mb-4">
+                        <div className="w-24 h-24 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20 group-hover:scale-105 transition-transform duration-300">
+                          <div className="relative opacity-0 animate-pop-2">
+                            {/* AI Sparkle Diamond Star Icon */}
+                            <svg className="w-12 h-12 text-[#E6A24C]" viewBox="0 0 24 24" fill="currentColor">
+                              {/* Main diamond star shape */}
+                              <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7L12 16.4 5.7 21l2.3-7-6-4.6h7.6L12 2z" />
+                            </svg>
+                            {/* Sparkle particles around the star */}
+                            <div className="absolute inset-0 pointer-events-none">
+                              <div className="absolute top-0 left-1/4 w-1.5 h-1.5 bg-[#E6A24C] rounded-full animate-ping" style={{ animationDelay: '0s' }} />
+                              <div className="absolute top-1/4 right-0 w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '0.5s' }} />
+                              <div className="absolute bottom-0 left-0 w-1.5 h-1.5 bg-[#E6A24C] rounded-full animate-ping" style={{ animationDelay: '1s' }} />
+                              <div className="absolute bottom-1/4 right-1/4 w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '1.5s' }} />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-[#E6A24C] rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
+                      </div>
+                      <h4 className="font-bold text-lg mb-2">AIが解析</h4>
+                      <p className="text-white/60 text-sm">コンテンツ・カラー・ロゴを自動検出</p>
+                      <div className="mt-4 flex gap-2 justify-center">
+                        <span className="px-3 py-1 bg-[#E6A24C]/20 rounded-full text-xs text-[#E6A24C]">カラー抽出</span>
+                        <span className="px-3 py-1 bg-[#E6A24C]/20 rounded-full text-xs text-[#E6A24C]">ロゴ検出</span>
+                      </div>
+                    </div>
+
+                    {/* Step 3: QR Generation */}
+                    <div className="flex flex-col items-center text-center group">
+                      <div className="relative mb-4">
+                        <div className="w-24 h-24 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20 group-hover:scale-105 transition-transform duration-300 overflow-hidden">
+                          <svg className="w-12 h-12 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                          </svg>
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-[#E6A24C] rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
+                      </div>
+                      <h4 className="font-bold text-lg mb-2">QR完成</h4>
+                      <p className="text-white/60 text-sm">ブランドに最適なデザインを生成</p>
+                      <div className="mt-4 flex gap-2 justify-center">
+                        <span className="px-3 py-1 bg-green-500/20 rounded-full text-xs text-green-400">PNG</span>
+                        <span className="px-3 py-1 bg-green-500/20 rounded-full text-xs text-green-400">SVG</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -764,6 +834,200 @@ export default function Home() {
                   </table>
                 </div>
               </div>
+
+              {/* Pricing Preview Section */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-[#171158]/5 p-8 md:p-12 shadow-xl shadow-[#171158]/5">
+                <div className="text-center mb-10">
+                  <h3 className="text-2xl font-bold text-[#1B1723] mb-3">シンプルな料金プラン</h3>
+                  <p className="text-[#1B1723]/60">無料でも無制限。もっと使いたい方にはお手頃な有料プランへ。パーソナルが人気です。</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  {/* Free */}
+                  <div className="bg-gradient-to-br from-[#171158]/5 to-transparent rounded-2xl p-6 border border-[#171158]/10">
+                    <div className="text-center mb-4">
+                      <h4 className="font-bold text-[#1B1723] text-lg">Free</h4>
+                      <p className="text-3xl font-bold text-[#1B1723] mt-2">無料</p>
+                      <p className="text-xs text-[#1B1723]/50 mt-1">Googleログインで開始</p>
+                    </div>
+                    <ul className="space-y-2 text-sm text-[#1B1723]/70">
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        無制限QR生成
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        1024px解像度
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        履歴保存
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Personal */}
+                  <div className="bg-gradient-to-br from-[#171158]/5 to-transparent rounded-2xl p-6 border border-[#171158]/10">
+                    <div className="text-center mb-4">
+                      <h4 className="font-bold text-[#1B1723] text-lg">Personal</h4>
+                      <div className="mt-2">
+                        <span className="text-3xl font-bold text-[#1B1723]">¥499</span>
+                        <span className="text-[#1B1723]/50 text-sm">/月</span>
+                      </div>
+                      <p className="text-xs text-[#1B1723]/50 mt-1">個人クリエイター向け</p>
+                    </div>
+                    <ul className="space-y-2 text-sm text-[#1B1723]/70">
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        2048px解像度
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        テンプレート10件
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        スマートダッシュボード
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Pro */}
+                  <div className="relative bg-gradient-to-br from-[#171158] to-[#1B1723] rounded-2xl p-6 text-white">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#E6A24C] text-white text-xs font-bold rounded-full">
+                      人気
+                    </div>
+                    <div className="text-center mb-4">
+                      <h4 className="font-bold text-lg">Pro</h4>
+                      <div className="mt-2">
+                        <span className="text-3xl font-bold">¥980</span>
+                        <span className="text-white/50 text-sm">/月</span>
+                      </div>
+                      <p className="text-xs text-white/50 mt-1">ビジネス利用に最適</p>
+                    </div>
+                    <ul className="space-y-2 text-sm text-white/80">
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        4096px解像度
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        SVG/PDF出力
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        動的QR・スキャン分析
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <Link
+                    href="/pricing"
+                    className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-[#171158] bg-[#171158]/10 rounded-xl hover:bg-[#171158]/20 transition-colors"
+                  >
+                    すべてのプランを見る
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Google Auth Promotion Section */}
+              <div className="bg-gradient-to-br from-[#E6A24C]/10 via-white to-[#171158]/5 rounded-3xl p-8 md:p-12 border border-[#E6A24C]/20">
+                <div className="text-center mb-10">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#E6A24C]/10 rounded-full mb-6">
+                    <svg className="w-5 h-5 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-[#E6A24C]">完全無料</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-[#1B1723] mb-4">
+                    Googleアカウントで
+                    <span className="text-[#E6A24C]">無制限</span>
+                    にQR生成
+                  </h3>
+                  <p className="text-[#1B1723]/60 max-w-xl mx-auto">
+                    無料のGoogleログインだけで、すべてのQRコードをダッシュボードで一元管理。
+                    履歴保存・再編集・再ダウンロードが無制限で利用できます。
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                  {[
+                    {
+                      icon: (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ),
+                      title: '無制限生成',
+                      desc: '何度でもQRコードを生成可能'
+                    },
+                    {
+                      icon: (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      ),
+                      title: '履歴保存',
+                      desc: 'ダッシュボードで一覧管理'
+                    },
+                    {
+                      icon: (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                        </svg>
+                      ),
+                      title: 'WiFi QR',
+                      desc: '自宅やオフィスのWiFi共有'
+                    },
+                    {
+                      icon: (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      ),
+                      title: '短縮URL',
+                      desc: 'オリジナルの短縮リンク'
+                    }
+                  ].map((feature, i) => (
+                    <div key={i} className="bg-white rounded-2xl p-5 border border-[#171158]/5 shadow-sm">
+                      <div className="w-10 h-10 bg-gradient-to-br from-[#171158] to-[#1B1723] rounded-xl flex items-center justify-center text-white mb-3">
+                        {feature.icon}
+                      </div>
+                      <h4 className="font-bold text-[#1B1723] mb-1">{feature.title}</h4>
+                      <p className="text-sm text-[#1B1723]/60">{feature.desc}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-center">
+                  <p className="text-sm text-[#1B1723]/50 mb-4">
+                    ログインなしでも月2回まで無料で生成できます
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -773,14 +1037,9 @@ export default function Home() {
       {isLoading && !qrCode && (
         <div className="py-24">
           <div className="flex flex-col items-center justify-center gap-5">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full border-4 border-[#171158]/10" />
-              <div className="absolute inset-0 w-20 h-20 rounded-full border-4 border-t-[#E6A24C] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
-              <div className="absolute inset-2 w-16 h-16 rounded-full border-4 border-t-transparent border-r-[#171158] border-b-transparent border-l-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
-            </div>
             <div className="text-center">
               <p className="text-[#1B1723] font-semibold">サイトを解析中...</p>
-              <p className="text-sm text-[#171158]/60 mt-1">AIがコンテンツを理解しています</p>
+              <p className="text-sm text-[#171158]/60 mt-1">🤖がコンテンツを理解しています</p>
             </div>
           </div>
         </div>

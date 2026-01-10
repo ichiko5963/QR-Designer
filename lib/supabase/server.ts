@@ -9,22 +9,24 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll()
+        get(name: string) {
+          return cookieStore.get(name)?.value
         },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        async set(name: string, value: string) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
+            cookieStore.set(name, value)
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Ignore as Server Components cannot mutate cookies
           }
         },
+        async remove(name: string) {
+          try {
+            cookieStore.delete(name)
+          } catch {
+            // Ignore as Server Components cannot mutate cookies
+          }
+        }
       },
     }
   )
 }
-

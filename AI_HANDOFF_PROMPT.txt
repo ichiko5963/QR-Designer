@@ -1,0 +1,30 @@
+Next.js 16.1.1 + Supabase + @supabase/ssrを使用したGoogle OAuth認証で、以下の問題が発生しています。修正をお願いします。
+
+【問題】
+1. PKCE code verifier not found in storage エラーが発生
+   - /api/auth/callbackでexchangeCodeForSessionを呼び出す際に発生
+   - サーバー側でOAuthを開始する際に、PKCE code verifierがクッキーに保存されていない
+
+2. セッションが保存されない
+   - ログイン成功後、ダッシュボードにリダイレクトされるが、セッションが存在しない
+   - [Dashboard Layout] Auth session missing! エラーが発生
+
+【要望】
+- ログインしたら自動的に/dashboardにリダイレクト
+- ログイン中は常にダッシュボードにいる状態（ホームページアクセス時も自動リダイレクト）
+- ログイン画面（AuthButton）は常に表示される
+
+【現在の実装】
+- /app/api/auth/signin/route.ts: サーバー側でOAuthを開始
+- /app/api/auth/callback/route.ts: OAuthコールバック処理（PKCE code verifierエラー発生中）
+- /app/dashboard/layout.tsx: セッション確認（セッションが見つからない）
+- /lib/supabase/server.ts: サーバー側Supabaseクライアント
+- /lib/supabase/client.ts: クライアント側Supabaseクライアント
+
+【期待される動作】
+1. ログインボタンクリック → /api/auth/signin → Google OAuth（PKCE code verifierをクッキーに保存）
+2. Google認証後 → /api/auth/callback（PKCE code verifierをクッキーから読み取り、セッション交換）
+3. セッションをクッキーに保存 → /dashboardにリダイレクト
+4. ダッシュボードでセッションを読み取り、正常に表示
+
+詳細は HANDOFF_PROMPT.md を参照してください。

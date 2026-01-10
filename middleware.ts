@@ -54,8 +54,12 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired
+  // Refresh session if expired - セッションを更新するだけ
   await supabase.auth.getUser()
+
+  // ミドルウェアではリダイレクトを行わない
+  // 認証チェックとリダイレクトは各ページ/レイアウトで行う
+  // これにより無限ループを防ぐ
 
   return response
 }

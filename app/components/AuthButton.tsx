@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function AuthButton() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const pathname = usePathname()
 
   // クライアントを一度だけ生成
   const supabase = useMemo(() => createClient(), [])
@@ -16,6 +19,11 @@ export default function AuthButton() {
         const { data: { user }, error } = await supabase.auth.getUser()
         console.log('[AuthButton] getUser result:', { user: user?.email, error })
         setUser(user)
+        
+        // ログイン済みでホームページ（/）にいる場合、ダッシュボードにリダイレクト
+        if (user && pathname === '/') {
+          router.push('/dashboard')
+        }
       } catch (err) {
         console.error('[AuthButton] getUser error:', err)
       } finally {
@@ -29,24 +37,21 @@ export default function AuthButton() {
       (event, session) => {
         console.log('[AuthButton] Auth state changed:', event, session?.user?.email)
         setUser(session?.user ?? null)
+        
+        // ログイン成功時（SIGNED_IN）でホームページにいる場合、ダッシュボードにリダイレクト
+        if (event === 'SIGNED_IN' && session?.user && pathname === '/') {
+          router.push('/dashboard')
+        }
       }
     )
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [supabase, router, pathname])
 
   const handleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}`,
-        skipBrowserRedirect: false,
-      }
-    })
-
-    if (error) {
-      console.error('Error signing in:', error)
-    }
+    // サーバー側でOAuthを開始するAPIルートを使用
+    // これにより、PKCE code verifierがクッキーに保存される
+    window.location.href = `/api/auth/signin?redirectTo=${encodeURIComponent('/dashboard')}`
   }
 
   const handleSignOut = async () => {

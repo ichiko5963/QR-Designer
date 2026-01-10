@@ -1,6 +1,5 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { createRouteClient } from '@/lib/supabase/route'
 
 export async function GET(req: Request) {
   const requestUrl = new URL(req.url)
@@ -14,28 +13,8 @@ export async function GET(req: Request) {
 
   if (code) {
     try {
-      const cookieStore = await cookies()
-      console.log('[Auth Callback] Cookie store obtained')
-
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              const all = cookieStore.getAll()
-              console.log('[Auth Callback] getAll cookies:', all.map(c => c.name))
-              return all
-            },
-            setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-              console.log('[Auth Callback] setAll cookies:', cookiesToSet.map(c => c.name))
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options)
-              })
-            },
-          },
-        }
-      )
+      const redirectUrl = new URL(next || '/dashboard', requestUrl.origin)
+      const { supabase, applyCookies } = await createRouteClient()
       console.log('[Auth Callback] Supabase client created')
 
       console.log('[Auth Callback] Calling exchangeCodeForSession...')
@@ -44,18 +23,33 @@ export async function GET(req: Request) {
       if (error) {
         console.error('[Auth Callback] ERROR:', error.message)
         console.error('[Auth Callback] Error details:', JSON.stringify(error, null, 2))
+        // エラーが発生した場合、ホームページにリダイレクトしてエラーメッセージを表示
+        const errorUrl = new URL('/', requestUrl.origin)
+        errorUrl.searchParams.set('error', 'auth_failed')
+        errorUrl.searchParams.set('message', encodeURIComponent(error.message))
+        return applyCookies(NextResponse.redirect(errorUrl))
       } else {
         console.log('[Auth Callback] SUCCESS! User:', data.user?.email)
         console.log('[Auth Callback] Session expires:', data.session?.expires_at)
+        
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('[Auth Callback] Session confirmed:', session ? 'exists' : 'missing')
+
+        console.log('[Auth Callback] Redirecting to:', redirectUrl.toString())
+        return applyCookies(NextResponse.redirect(redirectUrl))
       }
     } catch (e) {
       console.error('[Auth Callback] EXCEPTION:', e)
+      const errorUrl = new URL('/', requestUrl.origin)
+      errorUrl.searchParams.set('error', 'auth_exception')
+      return applyCookies(NextResponse.redirect(errorUrl))
     }
   }
 
-  const redirectUrl = new URL(next, requestUrl.origin)
-  console.log('[Auth Callback] Redirecting to:', redirectUrl.toString())
+  // コードがない場合（エラーなど）はホームページへ
+  const redirectUrl = new URL(next || '/', requestUrl.origin)
+  console.log('[Auth Callback] No code, redirecting to:', redirectUrl.toString())
   console.log('[Auth Callback] === END ===')
-  return NextResponse.redirect(redirectUrl)
+  const response = NextResponse.redirect(redirectUrl)
+  return response
 }
-

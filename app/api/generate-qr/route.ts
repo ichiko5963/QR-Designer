@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { generateQRCodeAsDataURL } from '@/lib/qr/generator'
 import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
+import { parseICO } from 'icojs'
 import type { Design } from '@/types/design'
 import type { Customization } from '@/types/design'
 
@@ -203,12 +204,33 @@ async function fetchFirstAvailableLogo(candidates: string[]): Promise<Buffer | u
 
       const arrayBuffer = await fetched.arrayBuffer()
       const rawBuffer = Buffer.from(arrayBuffer)
-      // ICOなどもPNGに正規化
-      const normalized = await sharp(rawBuffer).png().toBuffer()
+      const normalized = await normalizeLogoBuffer(rawBuffer, contentType, candidate)
       return normalized
     } catch (err) {
       console.warn('Failed to fetch logo candidate:', candidate, err)
     }
   }
   return undefined
+}
+
+async function normalizeLogoBuffer(rawBuffer: Buffer, contentType: string, candidate: string) {
+  const lowerContentType = contentType.toLowerCase()
+  const isIco =
+    lowerContentType.includes('image/x-icon') ||
+    lowerContentType.includes('image/vnd.microsoft.icon') ||
+    candidate.toLowerCase().endsWith('.ico')
+
+  if (isIco) {
+    try {
+      const icoImages = await parseICO(rawBuffer, 'image/png')
+      if (icoImages.length > 0) {
+        const largest = icoImages.sort((a, b) => b.width * b.height - a.width * a.height)[0]
+        return Buffer.from(largest.buffer)
+      }
+    } catch (icoError) {
+      console.warn('Failed to normalize ICO logo candidate:', candidate, icoError)
+    }
+  }
+
+  return sharp(rawBuffer).png().toBuffer()
 }
