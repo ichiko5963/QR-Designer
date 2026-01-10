@@ -143,51 +143,13 @@ export default function Home() {
     setResetKey(prev => prev + 1)
   }
 
-  // 色プリセットを生成（単色 + グラデーションバリエーション）
+  // 色プリセットを生成（グラデーション優先 + 単色）
   const generateColorPresets = (logoColors: string[], siteColors: string[]): ColorPreset[] => {
     const presets: ColorPreset[] = []
-    const usedColors = new Set<string>()
 
-    // 白色をフィルタリング
+    // 白色・薄い色をフィルタリング
     const filteredLogoColors = logoColors.filter(c => !isWhiteColor(c))
     const filteredSiteColors = siteColors.filter(c => !isWhiteColor(c))
-
-    // ロゴカラーを追加（最大3色、白は除外）
-    filteredLogoColors.forEach((color, i) => {
-      if (!usedColors.has(color.toLowerCase()) && presets.length < 4) {
-        usedColors.add(color.toLowerCase())
-        presets.push({
-          id: `logo-${i}`,
-          name: `ロゴ ${i + 1}`,
-          color
-        })
-      }
-    })
-
-    // サイトカラーを追加（残り枠、白は除外）
-    filteredSiteColors.forEach((color, i) => {
-      if (!usedColors.has(color.toLowerCase()) && presets.length < 4) {
-        usedColors.add(color.toLowerCase())
-        presets.push({
-          id: `site-${i}`,
-          name: `サイト ${i + 1}`,
-          color
-        })
-      }
-    })
-
-    // 4つに満たない場合はデフォルト色で補完
-    const defaultColors = ['#171158', '#1B1723', '#E6A24C', '#2A2478']
-    defaultColors.forEach((color, i) => {
-      if (!usedColors.has(color.toLowerCase()) && presets.length < 4) {
-        usedColors.add(color.toLowerCase())
-        presets.push({
-          id: `default-${i}`,
-          name: `カラー ${presets.length + 1}`,
-          color
-        })
-      }
-    })
 
     // 使用可能な色を収集（グラデーション用）
     const allColors = [...filteredLogoColors, ...filteredSiteColors].filter(
@@ -203,24 +165,22 @@ export default function Home() {
     const color2 = allColors[1] || '#E6A24C'
     const color3 = allColors[2] || color2
 
-    // グラデーションバリエーション（方向別に厳選）
+    // グラデーションバリエーション（最初に配置）
     const gradientVariations: Array<{
       id: string
       name: string
       colors: string[]
       direction: ColorPreset['gradientDirection']
     }> = [
-      // 斜め方向（最も人気）
       { id: 'grad-br', name: '↘ 斜め', colors: [color1, color2, color3], direction: 'to-br' },
       { id: 'grad-tr', name: '↗ 斜め', colors: [color1, color2, color3], direction: 'to-tr' },
-      // 水平・垂直
       { id: 'grad-r', name: '→ 横', colors: [color1, color2, color3], direction: 'to-r' },
       { id: 'grad-b', name: '↓ 縦', colors: [color1, color2, color3], direction: 'to-b' },
-      // 放射状
       { id: 'grad-radial', name: '◎ 中心', colors: [color1, color2, color3], direction: 'radial' },
       { id: 'grad-radial-tl', name: '◐ 左上', colors: [color1, color2, color3], direction: 'radial-tl' },
     ]
 
+    // グラデーションを最初に追加
     gradientVariations.forEach(variation => {
       presets.push({
         id: variation.id,
@@ -230,6 +190,37 @@ export default function Home() {
         colors: variation.colors,
         gradientDirection: variation.direction
       })
+    })
+
+    // 単色プリセットを追加（グラデーションの後）
+    const usedSolidColors = new Set<string>()
+
+    // ロゴカラーから単色を追加
+    filteredLogoColors.forEach((color, index) => {
+      const normalizedColor = color.toLowerCase()
+      if (!usedSolidColors.has(normalizedColor)) {
+        usedSolidColors.add(normalizedColor)
+        presets.push({
+          id: `logo-${index}`,
+          name: 'ロゴ',
+          color: color,
+          isGradient: false
+        })
+      }
+    })
+
+    // サイトカラーから単色を追加
+    filteredSiteColors.forEach((color, index) => {
+      const normalizedColor = color.toLowerCase()
+      if (!usedSolidColors.has(normalizedColor)) {
+        usedSolidColors.add(normalizedColor)
+        presets.push({
+          id: `site-${index}`,
+          name: 'サイト',
+          color: color,
+          isGradient: false
+        })
+      }
     })
 
     return presets
@@ -348,22 +339,24 @@ export default function Home() {
           )
           setColorPresets(presets)
 
-          if (applyLogoColors) {
-            const logoColors = data.extractedLogoColors
-            // 単色の場合は同じ色を使用（白へのグラデーションにならないように）
-            const color1 = logoColors[0]
-            const color2 = logoColors[1] || color1
-            const color3 = logoColors[2] || color2
+          if (applyLogoColors && presets.length > 0) {
+            // 最初のグラデーションプリセットを適用
+            const firstPreset = presets[0]
+            const colors = firstPreset.colors || [firstPreset.color]
+            const color1 = colors[0]
+            const color2 = colors[1] || color1
+            const color3 = colors[2] || color2
 
             const newCustomization: Customization = {
               ...currentCustomization,
               patternColor1: color1,
               patternColor2: color2,
               patternColor3: color3,
-              colorStyle: logoColors.length >= 2 ? 'gradient' : 'gradient'
+              colorStyle: 'gradient',
+              gradientDirection: firstPreset.gradientDirection || 'to-br'
             }
             setCustomization(newCustomization)
-            setSelectedPresetId(presets[0]?.id || null)
+            setSelectedPresetId(firstPreset.id)
 
             const regenPayload: Record<string, unknown> = {
               url,
