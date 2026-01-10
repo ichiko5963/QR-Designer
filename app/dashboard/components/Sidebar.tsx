@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { createClient } from '@/lib/supabase/client'
 
 interface SidebarProps {
   user: {
+    id?: string
     email?: string
     user_metadata?: {
       avatar_url?: string
@@ -17,18 +19,21 @@ interface SidebarProps {
   plan: string
 }
 
+interface QRHistory {
+  id: string
+  url: string
+  page_title?: string
+  design_name?: string
+  qr_image_url?: string
+  created_at: string
+}
+
 const navigation = [
   {
     name: 'ダッシュボード',
     href: '/dashboard',
     icon: HomeIcon,
     exact: true
-  },
-  {
-    name: 'QRコード',
-    href: '/dashboard/qr-codes',
-    icon: QrCodeIcon,
-    badge: null
   },
   {
     name: 'アンケート',
@@ -126,9 +131,63 @@ function XMarkIcon({ className }: { className?: string }) {
   )
 }
 
+function IdCardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
+    </svg>
+  )
+}
+
 export default function Sidebar({ user, plan }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [qrHistory, setQrHistory] = useState<QRHistory[]>([])
+  const [showAllQR, setShowAllQR] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchQRHistory()
+    }
+  }, [user?.id])
+
+  const fetchQRHistory = async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('qr_history')
+      .select('id, url, page_title, design_name, qr_image_url, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (data) setQrHistory(data)
+  }
+
+  const handleDeleteQR = async (id: string) => {
+    if (!confirm('このQRコードを削除しますか？')) return
+
+    setDeletingId(id)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('qr_history')
+      .delete()
+      .eq('id', id)
+
+    if (!error) {
+      setQrHistory(prev => prev.filter(qr => qr.id !== id))
+    }
+    setDeletingId(null)
+  }
+
+  const handleDownload = (qr: QRHistory) => {
+    if (!qr.qr_image_url) return
+    const link = document.createElement('a')
+    link.href = qr.qr_image_url
+    link.download = `qr-${qr.page_title || qr.id}.png`
+    link.click()
+  }
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href
@@ -140,33 +199,35 @@ export default function Sidebar({ user, plan }: SidebarProps) {
     return requiredPlans.includes(plan)
   }
 
-  // プラン表示名のマッピング
-const planDisplayNames: Record<string, string> = {
-  free: 'Free',
-  personal: 'Personal',
-  pro: 'Pro',
-  business: 'Business',
+  const isPaidPlan = plan !== 'free'
+
+  const planDisplayNames: Record<string, string> = {
+    free: 'Free',
+    personal: 'Personal',
+    pro: 'Pro',
+    business: 'Business',
     agency: 'Agency',
     enterprise: 'Enterprise'
   }
-  
   const planDisplayName = planDisplayNames[plan] || plan.charAt(0).toUpperCase() + plan.slice(1)
 
+  const displayedQRs = showAllQR ? qrHistory : qrHistory.slice(0, 4)
+
   const SidebarContent = () => (
-    <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white border-r border-[#171158]/5 px-6 pb-4">
+    <div className="flex grow flex-col gap-y-4 overflow-y-auto bg-white border-r border-[#171158]/5 px-4 pb-4">
       {/* ロゴ */}
-      <div className="flex h-16 shrink-0 items-center gap-3">
-        <Link href="/" className="flex items-center gap-3">
+      <div className="flex h-14 shrink-0 items-center gap-2 px-2">
+        <Link href="/" className="flex items-center gap-2">
           <Image
             src="/logo.png"
             alt="QR Code Designer"
-            width={40}
-            height={40}
+            width={32}
+            height={32}
             className="object-contain"
           />
           <div>
-            <h1 className="text-lg font-bold text-[#1B1723]">QR Designer</h1>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            <h1 className="text-base font-bold text-[#1B1723]">QR Designer</h1>
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
               plan === 'free'
                 ? 'bg-gray-100 text-gray-600'
                 : 'bg-gradient-to-r from-[#E6A24C]/20 to-[#E6A24C]/10 text-[#E6A24C]'
@@ -180,9 +241,9 @@ const planDisplayNames: Record<string, string> = {
       {/* 新規作成ボタン */}
       <Link
         href="/dashboard/generate"
-        className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#E6A24C] to-[#D4923D] rounded-xl hover:from-[#F0B86E] hover:to-[#E6A24C] shadow-lg shadow-[#E6A24C]/30 hover:shadow-xl hover:shadow-[#E6A24C]/40 transition-all hover:-translate-y-0.5"
+        className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-[#E6A24C] to-[#D4923D] rounded-xl hover:from-[#F0B86E] hover:to-[#E6A24C] shadow-lg shadow-[#E6A24C]/30 transition-all hover:-translate-y-0.5"
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
         </svg>
         <span>新規QRコード作成</span>
@@ -190,7 +251,7 @@ const planDisplayNames: Record<string, string> = {
 
       {/* ナビゲーション */}
       <nav className="flex flex-1 flex-col">
-        <ul className="flex flex-1 flex-col gap-y-7">
+        <ul className="flex flex-1 flex-col gap-y-4">
           <li>
             <ul className="-mx-2 space-y-1">
               {navigation.map((item) => {
@@ -201,7 +262,7 @@ const planDisplayNames: Record<string, string> = {
                   <li key={item.name}>
                     <Link
                       href={accessible ? item.href : '/dashboard/settings/billing'}
-                      className={`group flex gap-x-3 rounded-xl p-3 text-sm font-semibold leading-6 transition-all ${
+                      className={`group flex gap-x-3 rounded-lg p-2 text-sm font-semibold leading-6 transition-all ${
                         active
                           ? 'bg-gradient-to-r from-[#171158] to-[#1B1723] text-white shadow-lg shadow-[#171158]/20'
                           : accessible
@@ -209,12 +270,10 @@ const planDisplayNames: Record<string, string> = {
                             : 'text-[#1B1723]/40 cursor-not-allowed'
                       }`}
                     >
-                      <item.icon
-                        className={`h-5 w-5 shrink-0 ${active ? 'text-white' : ''}`}
-                      />
+                      <item.icon className={`h-5 w-5 shrink-0 ${active ? 'text-white' : ''}`} />
                       {item.name}
                       {item.badge && !accessible && (
-                        <span className="ml-auto text-xs bg-[#E6A24C]/10 text-[#E6A24C] px-2 py-0.5 rounded-full">
+                        <span className="ml-auto text-[10px] bg-[#E6A24C]/10 text-[#E6A24C] px-1.5 py-0.5 rounded-full">
                           {item.badge}
                         </span>
                       )}
@@ -223,6 +282,108 @@ const planDisplayNames: Record<string, string> = {
                 )
               })}
             </ul>
+          </li>
+
+          {/* QRコード履歴 */}
+          <li>
+            <div className="flex items-center justify-between px-2 mb-2">
+              <span className="text-xs font-semibold text-[#1B1723]/40">生成したQRコード</span>
+              {qrHistory.length > 4 && (
+                <button
+                  onClick={() => setShowAllQR(!showAllQR)}
+                  className="text-[10px] text-[#E6A24C] hover:text-[#D4923D]"
+                >
+                  {showAllQR ? '折りたたむ' : 'すべて表示'}
+                </button>
+              )}
+            </div>
+            <ul className="space-y-1">
+              {displayedQRs.length > 0 ? (
+                displayedQRs.map((qr) => (
+                  <li key={qr.id} className="group relative">
+                    <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#FAFBFC] transition-colors">
+                      {qr.qr_image_url ? (
+                        <img
+                          src={qr.qr_image_url}
+                          alt=""
+                          className="w-8 h-8 rounded object-contain bg-white border border-[#171158]/5"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-[#171158]/5 flex items-center justify-center">
+                          <QrCodeIcon className="w-4 h-4 text-[#171158]/30" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-[#1B1723] truncate">
+                          {qr.page_title || qr.design_name || 'QRコード'}
+                        </p>
+                        <p className="text-[10px] text-[#1B1723]/40 truncate">
+                          {new Date(qr.created_at).toLocaleDateString('ja-JP')}
+                        </p>
+                      </div>
+                      {/* アクションボタン */}
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleDownload(qr)}
+                          className="p-1 text-[#1B1723]/40 hover:text-[#171158] rounded"
+                          title="ダウンロード"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQR(qr.id)}
+                          disabled={deletingId === qr.id}
+                          className="p-1 text-[#1B1723]/40 hover:text-red-500 rounded disabled:opacity-50"
+                          title="削除"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <li className="px-2 py-3 text-center">
+                  <p className="text-xs text-[#1B1723]/40">まだQRコードがありません</p>
+                </li>
+              )}
+            </ul>
+            <Link
+              href="/dashboard/qr-codes"
+              className="flex items-center gap-2 px-2 py-2 mt-1 text-xs text-[#171158] hover:text-[#2A2478] font-semibold transition-colors"
+            >
+              すべてのQRコードを見る
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </li>
+
+          {/* 名刺ページ作成 */}
+          <li>
+            <div className="px-2 mb-2">
+              <span className="text-xs font-semibold text-[#1B1723]/40">プロフィール</span>
+            </div>
+            <Link
+              href={isPaidPlan ? '/dashboard/profile-card' : '/dashboard/settings/billing'}
+              className={`flex items-center gap-2 px-2 py-2 rounded-lg transition-colors ${
+                isActive('/dashboard/profile-card')
+                  ? 'bg-[#171158]/10 text-[#171158]'
+                  : 'text-[#1B1723]/70 hover:bg-[#171158]/5'
+              }`}
+            >
+              <IdCardIcon className="w-5 h-5" />
+              <span className="text-sm font-semibold">名刺ページ作成</span>
+              {!isPaidPlan && (
+                <span className="ml-auto text-[10px] bg-[#E6A24C]/10 text-[#E6A24C] px-1.5 py-0.5 rounded-full">
+                  Personal+
+                </span>
+              )}
+            </Link>
           </li>
 
           {/* 設定セクション */}
@@ -243,7 +404,7 @@ const planDisplayNames: Record<string, string> = {
                   <li key={item.name}>
                     <Link
                       href={item.href}
-                      className={`group flex gap-x-3 rounded-xl p-3 text-sm font-semibold leading-6 transition-all ${
+                      className={`group flex gap-x-3 rounded-lg p-2 text-sm font-semibold leading-6 transition-all ${
                         active
                           ? 'bg-[#171158]/10 text-[#171158]'
                           : item.highlight
@@ -254,7 +415,7 @@ const planDisplayNames: Record<string, string> = {
                       <item.icon className="h-5 w-5 shrink-0" />
                       <span className="flex-1">{item.name}</span>
                       {item.name === 'プランを確認' && plan === 'free' && (
-                        <span className="text-xs font-bold text-[#E6A24C]">NEW</span>
+                        <span className="text-[10px] font-bold text-[#E6A24C]">NEW</span>
                       )}
                     </Link>
                   </li>
@@ -287,16 +448,12 @@ const planDisplayNames: Record<string, string> = {
       {/* モバイルサイドバー */}
       {isMobileOpen && (
         <div className="relative z-50 lg:hidden">
-          {/* 背景オーバーレイ */}
           <div
             className="fixed inset-0 bg-[#1B1723]/80 backdrop-blur-sm"
             onClick={() => setIsMobileOpen(false)}
           />
-
-          {/* サイドバー */}
           <div className="fixed inset-0 flex">
             <div className="relative mr-16 flex w-full max-w-xs flex-1">
-              {/* 閉じるボタン */}
               <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
                 <button
                   type="button"
@@ -307,7 +464,6 @@ const planDisplayNames: Record<string, string> = {
                   <XMarkIcon className="h-6 w-6 text-white" />
                 </button>
               </div>
-
               <SidebarContent />
             </div>
           </div>
