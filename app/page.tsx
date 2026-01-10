@@ -303,7 +303,10 @@ export default function Home() {
   ) => {
     if (!design || !url) return
 
+    // 生成開始時に古いQRコードをクリア（ちらつき防止）
+    setQrCode(null)
     setIsLoading(true)
+
     try {
       const currentCustomization = overrideCustomization || customization
       const payload: Record<string, unknown> = {
@@ -327,9 +330,8 @@ export default function Home() {
       const data = await response.json()
 
       if (data.success) {
-        setQrCode(data.qrCode)
-
-        if (data.extractedLogoColors && data.extractedLogoColors.length > 0) {
+        // ロゴカラーが抽出され、適用が必要な場合は先に色を適用してから表示
+        if (applyLogoColors && data.extractedLogoColors && data.extractedLogoColors.length > 0) {
           setExtractedLogoColors(data.extractedLogoColors)
 
           // 色プリセットを生成
@@ -339,7 +341,7 @@ export default function Home() {
           )
           setColorPresets(presets)
 
-          if (applyLogoColors && presets.length > 0) {
+          if (presets.length > 0) {
             // 最初のグラデーションプリセットを適用
             const firstPreset = presets[0]
             const colors = firstPreset.colors || [firstPreset.color]
@@ -358,6 +360,7 @@ export default function Home() {
             setCustomization(newCustomization)
             setSelectedPresetId(firstPreset.id)
 
+            // 色適用後のQRコードを生成（これだけを表示）
             const regenPayload: Record<string, unknown> = {
               url,
               design,
@@ -378,7 +381,26 @@ export default function Home() {
             const regenData = await regenResponse.json()
             if (regenData.success) {
               setQrCode(regenData.qrCode)
+            } else {
+              // 再生成失敗時はデフォルトのQRコードを表示
+              setQrCode(data.qrCode)
             }
+          } else {
+            // プリセットがない場合はデフォルトのQRコードを表示
+            setQrCode(data.qrCode)
+          }
+        } else {
+          // applyLogoColorsがfalseの場合、または色が抽出されなかった場合
+          setQrCode(data.qrCode)
+
+          // 色プリセットの更新（applyLogoColorsがfalseでも）
+          if (data.extractedLogoColors && data.extractedLogoColors.length > 0) {
+            setExtractedLogoColors(data.extractedLogoColors)
+            const presets = generateColorPresets(
+              data.extractedLogoColors,
+              siteColors || analysis?.colors || []
+            )
+            setColorPresets(presets)
           }
         }
       } else {
