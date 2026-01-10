@@ -58,6 +58,21 @@ function isWhiteColor(hex: string): boolean {
   return false
 }
 
+function clampColorValue(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function shiftHexColor(hex: string, amount: number) {
+  const normalized = hex.replace('#', '')
+  if (normalized.length !== 6) return hex
+  const num = parseInt(normalized, 16)
+  const r = clampColorValue(((num >> 16) & 0xff) + amount, 0, 255)
+  const g = clampColorValue(((num >> 8) & 0xff) + amount, 0, 255)
+  const b = clampColorValue((num & 0xff) + amount, 0, 255)
+  const combined = (r << 16) | (g << 8) | b
+  return `#${combined.toString(16).padStart(6, '0')}`
+}
+
 const defaultCustomization: Customization = {
   size: 512,
   cornerRadius: 0,
@@ -95,6 +110,35 @@ const defaultCustomization: Customization = {
   cornerDotStyle: 'square'
 }
 
+const applyPresetToCustomization = (
+  preset: ColorPreset,
+  baseCustomization: Customization
+): Customization => {
+  if (preset.isGradient && preset.colors) {
+    const c1 = preset.colors[0]
+    const c2 = preset.colors[1] || shiftHexColor(c1, -20)
+    const c3 = preset.colors[2] || shiftHexColor(c2, 20)
+
+    return {
+      ...baseCustomization,
+      patternColor1: c1,
+      patternColor2: c2,
+      patternColor3: c3,
+      colorStyle: 'gradient',
+      gradientDirection: preset.gradientDirection || 'to-br'
+    }
+  }
+
+  return {
+    ...baseCustomization,
+    patternColor1: preset.color,
+    patternColor2: preset.color,
+    patternColor3: preset.color,
+    colorStyle: 'gradient',
+    gradientDirection: preset.gradientDirection
+  }
+}
+
 export default function GeneratePage() {
   const [url, setUrl] = useState('')
   const [analysis, setAnalysis] = useState<URLAnalysis | null>(null)
@@ -109,6 +153,7 @@ export default function GeneratePage() {
   const [extractedLogoColors, setExtractedLogoColors] = useState<string[]>([])
   const [colorPresets, setColorPresets] = useState<ColorPreset[]>([])
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
+  const [autoPaletteSync, setAutoPaletteSync] = useState(true)
   const router = useRouter()
 
   // 色プリセットを生成
@@ -125,8 +170,8 @@ export default function GeneratePage() {
     }
 
     const color1 = allColors[0] || '#171158'
-    const color2 = allColors[1] || '#E6A24C'
-    const color3 = allColors[2] || color2
+    const color2 = allColors[1] || shiftHexColor(color1, -20)
+    const color3 = allColors[2] || shiftHexColor(color2, 20)
 
     const gradientVariations: Array<{
       id: string
@@ -203,6 +248,7 @@ export default function GeneratePage() {
     setExtractedLogoColors([])
     setColorPresets([])
     setSelectedPresetId(null)
+    setAutoPaletteSync(true)
     setIsLoading(true)
 
     try {
@@ -286,44 +332,22 @@ export default function GeneratePage() {
       const data = await response.json()
 
       if (data.success) {
-        if (applyLogoColors && data.extractedLogoColors && data.extractedLogoColors.length > 0) {
-          setExtractedLogoColors(data.extractedLogoColors)
-          const presets = generateColorPresets(
-            data.extractedLogoColors,
-            siteColors || analysis?.colors || []
-          )
-          setColorPresets(presets)
+        const paletteColors = siteColors || analysis?.colors || []
 
-          if (presets.length > 0) {
-            const firstPreset = presets[0]
-            const colors = firstPreset.colors || [firstPreset.color]
-            const color1 = colors[0]
-            const color2 = colors[1] || color1
-            const color3 = colors[2] || color2
+        const regenerateWithCustomization = async (updatedCustomization: Customization) => {
+          const regenPayload: Record<string, unknown> = {
+            url,
+            design,
+            customization: updatedCustomization,
+            saveToHistory: false
+          }
+          if (logoMode === 'upload' && (inlineLogo || uploadedLogo)) {
+            regenPayload.logo = inlineLogo || uploadedLogo
+          } else if (logoUrl) {
+            regenPayload.logoUrl = logoUrl
+          }
 
-            const newCustomization: Customization = {
-              ...currentCustomization,
-              patternColor1: color1,
-              patternColor2: color2,
-              patternColor3: color3,
-              colorStyle: 'gradient',
-              gradientDirection: firstPreset.gradientDirection || 'to-br'
-            }
-            setCustomization(newCustomization)
-            setSelectedPresetId(firstPreset.id)
-
-            const regenPayload: Record<string, unknown> = {
-              url,
-              design,
-              customization: newCustomization,
-              saveToHistory: false
-            }
-            if (logoMode === 'upload' && (inlineLogo || uploadedLogo)) {
-              regenPayload.logo = inlineLogo || uploadedLogo
-            } else if (logoUrl) {
-              regenPayload.logoUrl = logoUrl
-            }
-
+          try {
             const regenResponse = await fetch('/api/generate-qr', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -332,22 +356,48 @@ export default function GeneratePage() {
             const regenData = await regenResponse.json()
             if (regenData.success) {
               setQrCode(regenData.qrCode)
-            } else {
-              setQrCode(data.qrCode)
+              return true
             }
-          } else {
-            setQrCode(data.qrCode)
+          } catch (err) {
+            console.error('Failed to regenerate QR with palette', err)
           }
-        } else {
+
           setQrCode(data.qrCode)
-          if (data.extractedLogoColors && data.extractedLogoColors.length > 0) {
-            setExtractedLogoColors(data.extractedLogoColors)
-            const presets = generateColorPresets(
-              data.extractedLogoColors,
-              siteColors || analysis?.colors || []
-            )
-            setColorPresets(presets)
+          return false
+        }
+
+        const applyPaletteFromColors = async (logoColors: string[]) => {
+          setExtractedLogoColors(logoColors)
+          const presets = generateColorPresets(logoColors, paletteColors)
+          setColorPresets(presets)
+
+          if (presets.length === 0) {
+            setSelectedPresetId(null)
+            return false
           }
+
+          const hasExistingSelection = presets.some(preset => preset.id === selectedPresetId)
+          if (!hasExistingSelection) {
+            setSelectedPresetId(presets[0].id)
+          }
+
+          const shouldAutoApplyPreset = (applyLogoColors || autoPaletteSync) && presets.length > 0
+
+          if (shouldAutoApplyPreset) {
+            const firstPreset = presets[0]
+            const newCustomization = applyPresetToCustomization(firstPreset, currentCustomization)
+            setCustomization(newCustomization)
+            setSelectedPresetId(firstPreset.id)
+            return await regenerateWithCustomization(newCustomization)
+          }
+
+          return false
+        }
+
+        const paletteApplied = await applyPaletteFromColors(data.extractedLogoColors || [])
+
+        if (!paletteApplied) {
+          setQrCode(data.qrCode)
         }
       } else {
         throw new Error(data.error || 'QRコード生成に失敗しました')
@@ -376,33 +426,9 @@ export default function GeneratePage() {
   }
 
   const handlePresetSelect = async (preset: ColorPreset) => {
+    setAutoPaletteSync(false)
     setSelectedPresetId(preset.id)
-    let newCustomization: Customization
-
-    if (preset.isGradient && preset.colors) {
-      const c1 = preset.colors[0]
-      const c2 = preset.colors[1] || c1
-      const c3 = preset.colors.length >= 3 ? preset.colors[2] : c2
-
-      newCustomization = {
-        ...customization,
-        patternColor1: c1,
-        patternColor2: c2,
-        patternColor3: c3,
-        colorStyle: 'gradient',
-        gradientDirection: preset.gradientDirection || 'to-br'
-      }
-    } else {
-      newCustomization = {
-        ...customization,
-        patternColor1: preset.color,
-        patternColor2: preset.color,
-        patternColor3: preset.color,
-        colorStyle: 'gradient',
-        gradientDirection: undefined
-      }
-    }
-
+    const newCustomization = applyPresetToCustomization(preset, customization)
     setCustomization(newCustomization)
     if (selectedDesign) {
       await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
@@ -420,6 +446,7 @@ export default function GeneratePage() {
       if (typeof result === 'string') {
         setUploadedLogo(result)
         setLogoMode('upload')
+        setAutoPaletteSync(true)
         if (selectedDesign) {
           await generateQRCode(selectedDesign, false, result)
         }

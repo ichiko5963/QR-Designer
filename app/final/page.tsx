@@ -156,27 +156,53 @@ export default function FinalPage() {
 
               <div className="p-6">
                 {!isAuthed ? (
-                  <div className="text-center py-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#171158]/5 to-[#171158]/10 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-6 h-6 text-[#171158]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
+                  <div className="space-y-5">
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#171158]/5 to-[#171158]/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-6 h-6 text-[#171158]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-[#1B1723]/60">
+                        Google認証で完全無料のFreeプランが開放され、短縮URL以外にも日常のQR運用ツールがすべて使えます。
+                      </p>
                     </div>
-                    <p className="text-sm text-[#1B1723]/60 mb-4">
-                      Google認証で短縮URLを設定できます
-                    </p>
+                    <div className="bg-[#171158]/5 rounded-2xl p-4 text-left">
+                      <p className="text-xs font-semibold text-[#1B1723]/50 mb-2">Freeプランでできること</p>
+                      <ul className="space-y-2 text-sm text-[#1B1723]/80">
+                        <li className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
+                          無制限のQR生成と履歴保存（ダッシュボード管理）
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
+                          WiFi／短縮URL／vCard／メール／SMSなどのテンプレートが使い放題
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
+                          ロゴ保存＋AIカラーパレットでブランドカラーを自動反映
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
+                          高精度ダッシュボードで再編集・再ダウンロード・ショートURL連携
+                        </li>
+                      </ul>
+                    </div>
                     <button
-                      onClick={() => setIsAuthed(true)}
-                      className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm font-semibold text-[#1B1723]/80 bg-white border-2 border-[#171158]/10 rounded-xl hover:border-[#171158]/30 hover:bg-[#171158]/[0.02] transition-all"
+                      onClick={() => (window.location.href = '/api/auth/signin?redirectTo=%2Fdashboard')}
+                      className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-[#171158] to-[#1B1723] rounded-xl hover:from-[#2A2478] hover:to-[#171158] transition-all shadow-lg shadow-[#171158]/20"
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        <path fill="#fff" d="M21.35 11.1h-9.87v2.95h6.01c-.26 1.38-1.05 2.55-2.23 3.35v2.78h3.6c2.1-1.93 3.29-4.78 3.29-8.14 0-.45-.03-.9-.08-1.34z"/>
+                        <path fill="#fff" d="M11.48 22c2.97 0 5.46-.98 7.28-2.66l-3.6-2.78c-.97.67-2.23 1.07-3.68 1.07-2.82 0-5.23-1.91-6.1-4.47H1.14v2.82C2.95 19.53 6.64 22 11.48 22z"/>
+                        <path fill="#fff" d="M5.38 12.42c-.22-.64-.35-1.34-.35-2.05 0-.71.13-1.41.35-2.05V5.5H1.69C.92 7 .5 8.63.5 10.37c0 1.74.42 3.37 1.19 4.87l3.69-2.82z"/>
+                        <path fill="#fff" d="M11.48 4.37c1.62 0 3.07.55 4.21 1.63l3.15-3.12C17.46 1.08 15 0 11.48 0 6.63 0 2.95 2.47 1.14 6.13l3.69 2.82c.86-2.56 3.28-4.58 6.65-4.58z"/>
                       </svg>
-                      <span>Googleで認証</span>
+                      <span>無料でログイン</span>
                     </button>
+                    <p className="text-xs text-[#1B1723]/50 text-center">
+                      認証だけで料金は発生しません。ダッシュボードで短縮URLやロゴ管理がすぐに始められます。
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
