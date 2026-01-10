@@ -117,15 +117,12 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-[#E6A24C]/20 to-[#E6A24C]/10 rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-[#E6A24C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
             <div>
               <p className="text-xs text-[#1B1723]/50">現在のプラン</p>
-              <p className="text-xl font-bold text-[#1B1723] flex items-center gap-2">
-                {planName === 'free' && <span aria-hidden="true" className="text-2xl leading-none">🆓</span>}
-                <span>{displayPlanName}</span>
-              </p>
+              <p className="text-xl font-bold text-[#1B1723]">{displayPlanName}</p>
             </div>
           </div>
           {planName === 'free' && (
@@ -146,14 +143,11 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
               </svg>
             </div>
             <div>
-              <p className="text-xs text-white/60 flex items-center gap-1">
-                <span aria-hidden="true">🤖</span>
-                <span>AIで生成</span>
-              </p>
+              <p className="text-xs text-white/60">AIで生成</p>
               <p className="text-lg font-bold text-white">QRコード作成</p>
             </div>
           </div>
