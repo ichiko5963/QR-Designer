@@ -435,8 +435,8 @@ export default function PrivateQRPage() {
               </h2>
               <p className="text-sm text-[#1B1723]/60 mb-4">
                 {activeTab === 'profile'
-                  ? 'SNSリンクをまとめた個人プロフィールページを作成します'
-                  : '会社情報をまとめたプロフィールページをAIで作成します'}
+                  ? 'SNSリンクをまとめた名刺ページをAIで作成'
+                  : '会社情報をまとめた名刺などで使えるページをAIで作成'}
               </p>
               <Link
                 href={activeTab === 'profile' ? '/dashboard/profile-card' : '/dashboard/profile-card?type=business'}

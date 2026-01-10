@@ -150,15 +150,13 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(4)
 
-  const isPaidPlan = planName !== 'free'
-
   return (
     <div className="space-y-6">
       {/* ヘッダー - 横並びでコンパクト */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1B1723]">ダッシュボード</h1>
-          <p className="text-sm text-[#1B1723]/50">プライベート・法人QRコードの管理</p>
+          <p className="text-sm text-[#1B1723]/50">QRコードの作成・管理</p>
         </div>
 
         {/* 統計バッジ - 横並び */}
@@ -246,149 +244,59 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* メインセクション */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 左側: プライベートQR */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#1B1723]">プライベートQR</h2>
-            <Link
-              href="/dashboard/private-qr"
-              className="text-sm font-semibold text-[#E6A24C] hover:text-[#D4923D] flex items-center gap-1"
-            >
-              作成する
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
+      {/* クイックアクセス */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* プライベートQR */}
+        <Link
+          href="/dashboard/private-qr"
+          className="bg-white rounded-2xl border border-[#171158]/5 p-5 hover:border-[#E6A24C]/30 hover:shadow-lg transition-all group"
+        >
+          <div className="w-12 h-12 bg-[#171158]/5 rounded-xl flex items-center justify-center mb-3 group-hover:bg-[#171158]/10 transition-colors">
+            <UserIcon className="w-6 h-6 text-[#171158]" />
           </div>
+          <h3 className="font-bold text-[#1B1723] mb-1">プライベートQR</h3>
+          <p className="text-xs text-[#1B1723]/50">Wi-Fi・SNS・名刺ページ</p>
+        </Link>
 
-          <div className="bg-white rounded-2xl border border-[#171158]/5 p-5">
-            <p className="text-sm text-[#1B1723]/60 mb-4">
-              個人用のQRコードをまとめて管理。SNSや自宅Wi-Fiなど。
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { name: '自宅Wi-Fi', icon: WifiIcon, desc: 'ゲスト用' },
-                { name: 'LINE', icon: LineIcon, desc: '友だち追加' },
-                { name: 'Instagram', icon: CameraIcon, desc: 'フォロー' },
-                { name: 'X (Twitter)', icon: XIcon, desc: 'フォロー' },
-                { name: '自社サイト', icon: GlobeIcon, desc: 'ポートフォリオ' },
-                { name: '写真アルバム', icon: CameraIcon, desc: '共有リンク' },
-              ].map((item) => (
-                <Link
-                  key={item.name}
-                  href={`/dashboard/private-qr?type=${encodeURIComponent(item.name)}`}
-                  className="flex items-center gap-3 px-3 py-3 bg-[#FAFBFC] rounded-xl hover:bg-[#171158]/5 transition-colors group"
-                >
-                  <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center border border-[#171158]/5 group-hover:border-[#171158]/10">
-                    <item.icon className="w-5 h-5 text-[#1B1723]/60" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-[#1B1723]">{item.name}</p>
-                    <p className="text-[10px] text-[#1B1723]/40">{item.desc}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+        {/* コミュニティQR */}
+        <Link
+          href="/dashboard/community-qr"
+          className="bg-white rounded-2xl border border-[#171158]/5 p-5 hover:border-[#E6A24C]/30 hover:shadow-lg transition-all group"
+        >
+          <div className="w-12 h-12 bg-[#171158]/5 rounded-xl flex items-center justify-center mb-3 group-hover:bg-[#171158]/10 transition-colors">
+            <LineIcon className="w-6 h-6 text-[#171158]" />
           </div>
+          <h3 className="font-bold text-[#1B1723] mb-1">コミュニティQR</h3>
+          <p className="text-xs text-[#1B1723]/50">LINE・Discord・Slack招待</p>
+        </Link>
 
-          {/* プライベートプロフィールページ */}
-          <div className="bg-gradient-to-br from-[#171158] to-[#1B1723] rounded-2xl p-5 text-white">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
-                <UserIcon className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold mb-1">プロフィールページ</h3>
-                <p className="text-white/70 text-xs mb-3">
-                  SNSリンクをまとめた名刺ページを作成
-                </p>
-                <Link
-                  href="/dashboard/private-qr?tab=profile"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#171158] bg-white rounded-lg hover:bg-white/90"
-                >
-                  作成する
-                </Link>
-              </div>
-            </div>
+        {/* 生成したQRコード */}
+        <Link
+          href="/dashboard/qr-codes"
+          className="bg-white rounded-2xl border border-[#171158]/5 p-5 hover:border-[#E6A24C]/30 hover:shadow-lg transition-all group"
+        >
+          <div className="w-12 h-12 bg-[#171158]/5 rounded-xl flex items-center justify-center mb-3 group-hover:bg-[#171158]/10 transition-colors">
+            <svg className="w-6 h-6 text-[#171158]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5z" />
+            </svg>
           </div>
-        </div>
+          <h3 className="font-bold text-[#1B1723] mb-1">生成したQRコード</h3>
+          <p className="text-xs text-[#1B1723]/50">履歴・ダウンロード・管理</p>
+        </Link>
 
-        {/* 右側: 法人用QR */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#1B1723]">法人・ビジネスQR</h2>
-            <Link
-              href="/dashboard/private-qr?tab=business"
-              className="text-sm font-semibold text-[#E6A24C] hover:text-[#D4923D] flex items-center gap-1"
-            >
-              作成する
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
+        {/* アンケート */}
+        <Link
+          href="/dashboard/forms"
+          className="bg-white rounded-2xl border border-[#171158]/5 p-5 hover:border-[#E6A24C]/30 hover:shadow-lg transition-all group"
+        >
+          <div className="w-12 h-12 bg-[#171158]/5 rounded-xl flex items-center justify-center mb-3 group-hover:bg-[#171158]/10 transition-colors">
+            <svg className="w-6 h-6 text-[#171158]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+            </svg>
           </div>
-
-          <div className="bg-white rounded-2xl border border-[#171158]/5 p-5">
-            <p className="text-sm text-[#1B1723]/60 mb-4">
-              名刺やパンフレットに使えるビジネス用QRコード。
-            </p>
-
-            <div className="space-y-3">
-              {[
-                { name: '会社名 / 個人名', icon: BuildingIcon, placeholder: '株式会社〇〇 / 山田太郎' },
-                { name: '役職', icon: BriefcaseIcon, placeholder: '代表取締役' },
-                { name: '電話番号', icon: PhoneIcon, placeholder: '03-1234-5678' },
-                { name: 'メールアドレス', icon: EnvelopeIcon, placeholder: 'contact@example.com' },
-                { name: 'Webサイト', icon: GlobeIcon, placeholder: 'https://example.com' },
-                { name: '住所 (Google Maps)', icon: MapPinIcon, placeholder: '東京都渋谷区...' },
-              ].map((item) => (
-                <div
-                  key={item.name}
-                  className="flex items-center gap-3 px-3 py-2 bg-[#FAFBFC] rounded-xl"
-                >
-                  <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-[#171158]/5">
-                    <item.icon className="w-4 h-4 text-[#1B1723]/60" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-[#1B1723]">{item.name}</p>
-                    <p className="text-[10px] text-[#1B1723]/30">{item.placeholder}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 法人用名刺ページ */}
-          <div className="bg-gradient-to-br from-[#E6A24C] to-[#D4923D] rounded-2xl p-5 text-white">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                <BuildingIcon className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold mb-1">会社プロフィールページ</h3>
-                <p className="text-white/80 text-xs mb-3">
-                  会社情報をまとめたページをAIで作成
-                </p>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/dashboard/private-qr?tab=business-profile"
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#E6A24C] bg-white rounded-lg hover:bg-white/90"
-                  >
-                    作成する
-                  </Link>
-                  {!isPaidPlan && (
-                    <span className="text-[10px] text-white/80 bg-white/20 px-2 py-0.5 rounded">
-                      AI生成は有料
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+          <h3 className="font-bold text-[#1B1723] mb-1">アンケート</h3>
+          <p className="text-xs text-[#1B1723]/50">QRコード付きフォーム作成</p>
+        </Link>
       </div>
 
       {/* アップグレード誘導（無料プランの場合） */}
