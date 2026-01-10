@@ -357,8 +357,11 @@ export default function FormBuilderPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[#1B1723]/70 mb-1">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-[#1B1723]/70 mb-1">
                   説明
+                  <svg className="w-3.5 h-3.5 text-[#1B1723]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
                 </label>
                 <FormDescriptionInput
                   value={form.description || ''}
@@ -367,8 +370,11 @@ export default function FormBuilderPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#1B1723]/70 mb-1">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-[#1B1723]/70 mb-1">
                   テーマカラー
+                  <svg className="w-3.5 h-3.5 text-[#1B1723]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -626,33 +632,53 @@ export default function FormBuilderPage() {
 function FormTitleInput({ value, onSave }: { value: string; onSave: (value: string) => void }) {
   const [localValue, setLocalValue] = useState(value)
   const [isComposing, setIsComposing] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setLocalValue(value)
   }, [value])
 
   const handleBlur = () => {
+    setIsFocused(false)
     if (localValue !== value) {
       onSave(localValue)
     }
   }
 
   return (
-    <input
-      type="text"
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onCompositionStart={() => setIsComposing(true)}
-      onCompositionEnd={() => setIsComposing(false)}
-      onBlur={handleBlur}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' && !isComposing) {
-          e.currentTarget.blur()
-        }
-      }}
-      className="text-2xl font-bold text-[#1B1723] bg-transparent border-none focus:outline-none focus:ring-0 w-full"
-      placeholder="フォームタイトル"
-    />
+    <div className="flex items-center gap-2 group">
+      <input
+        ref={inputRef}
+        type="text"
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => setIsComposing(false)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !isComposing) {
+            e.currentTarget.blur()
+          }
+        }}
+        className="text-2xl font-bold text-[#1B1723] bg-transparent border-none focus:outline-none focus:ring-0 flex-1"
+        placeholder="フォームタイトル"
+      />
+      <button
+        onClick={() => inputRef.current?.focus()}
+        className={`p-1.5 rounded-lg transition-all ${
+          isFocused
+            ? 'text-[#E6A24C] bg-[#E6A24C]/10'
+            : 'text-[#1B1723]/30 hover:text-[#E6A24C] hover:bg-[#E6A24C]/5 opacity-0 group-hover:opacity-100'
+        }`}
+        title="タイトルを編集"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+      </button>
+    </div>
   )
 }
 
