@@ -15,13 +15,14 @@ export async function extractMetadata(url: string): Promise<Metadata> {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     })
-    
+
     const html = await response.text()
-    
-    // 最初の20行程度を取得
-    const htmlSnippet = html.split('\n').slice(0, 20).join('\n')
-    const $ = cheerio.load(htmlSnippet)
-    
+
+    // headタグ内を取得（メタデータ抽出用）
+    const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i)
+    const headHtml = headMatch ? headMatch[1] : html.slice(0, 10000)
+    const $ = cheerio.load(`<head>${headHtml}</head>`)
+
     const mainColor = extractMainColor(html)
     const faviconHref =
       $('link[rel="icon"]').attr('href') ||

@@ -153,7 +153,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # CORS用（ローカル開発）
-NEXT_PUBLIC_APP_URL=http://localhost:3001  # 本番時はVercel URLに変更
+NEXT_PUBLIC_APP_URL=http://localhost:3000  # 本番時はVercel URLに変更
 ```
 
 ### 3. ローカル開発サーバー起動

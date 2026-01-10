@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QR Designer - AI-Powered QR Code Generator",
+  title: "QR Code Designer - AI-Powered QR Code Generator",
   description: "URLを入力するだけで、AIが最適でおしゃれなQRコードを自動生成",
 };
 

@@ -11,10 +11,15 @@ export interface QRCodeOptions {
   logo?: Buffer
 }
 
-export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
+export interface QRCodeResult {
+  buffer: Buffer
+  extractedLogoColors: string[]
+}
+
+export async function generateQRCode(options: QRCodeOptions): Promise<QRCodeResult> {
   const { url, design, customization, logo } = options
   const palette = getMotifPalette(design)
-  
+
   // AIデザイン要件を反映したスタイルSVGを生成
   const styledSvg = generateStyledSvg(url, design, customization, palette)
 
@@ -26,17 +31,17 @@ export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
     })
     .png()
     .toBuffer()
-  
+
   // ロゴがある場合は合成
-  qrBuffer = await composeLogoIfAny({
+  const logoResult = await composeLogoIfAny({
     qrBuffer,
     logo,
     customization,
     palette
   })
+  qrBuffer = logoResult.buffer
+  const extractedLogoColors = logoResult.extractedColors
 
-
-  
   // 角の丸みを適用（maskで丸める）
   if (customization.cornerRadius > 0) {
     const radius = Math.min(
@@ -51,16 +56,19 @@ export async function generateQRCode(options: QRCodeOptions): Promise<Buffer> {
       .png()
       .toBuffer()
   }
-  
-  return qrBuffer
+
+  return { buffer: qrBuffer, extractedLogoColors }
 }
 
 export async function generateQRCodeAsDataURL(
   options: QRCodeOptions
-): Promise<string> {
-  const buffer = await generateQRCode(options)
-  const base64 = buffer.toString('base64')
-  return `data:image/png;base64,${base64}`
+): Promise<{ dataUrl: string; extractedLogoColors: string[] }> {
+  const result = await generateQRCode(options)
+  const base64 = result.buffer.toString('base64')
+  return {
+    dataUrl: `data:image/png;base64,${base64}`,
+    extractedLogoColors: result.extractedLogoColors
+  }
 }
 
 function generateStyledSvg(
@@ -76,20 +84,107 @@ function generateStyledSvg(
   
   const color1 = sanitizeHex(customization.patternColor1 || '#000000', '#000000')
   const color2 = sanitizeHex(customization.patternColor2 || color1, color1)
-  const useGradient = customization.patternGradientEnabled && color1 !== color2
+  const color3 = sanitizeHex(customization.patternColor3 || color2, color2)
+  const colors = [color1, color2, color3]
+  const colorStyle = customization.colorStyle || 'gradient'
   const bgColor = '#ffffff'
   
-  const gradientId = 'qr-gradient'
-  const gradientDef = useGradient ? `
-    <defs>
-      <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${color2};stop-opacity:1" />
-      </linearGradient>
-    </defs>
-  ` : ''
+  const center = moduleCount / 2
   
-  const fillColor = useGradient ? `url(#${gradientId})` : color1
+  const getModuleColor = (row: number, col: number): string => {
+    switch (colorStyle) {
+      case 'stripe':
+        return colors[(row + col) % 3]
+      case 'random':
+        return colors[(row * 7 + col * 13) % 3]
+      case 'radial': {
+        const dist = Math.sqrt(Math.pow(row - center, 2) + Math.pow(col - center, 2))
+        const maxDist = Math.sqrt(2) * center
+        const ratio = dist / maxDist
+        if (ratio < 0.33) return color1
+        if (ratio < 0.66) return color2
+        return color3
+      }
+      case 'corners': {
+        const isTopLeft = row < 9 && col < 9
+        const isTopRight = row < 9 && col >= moduleCount - 9
+        const isBottomLeft = row >= moduleCount - 9 && col < 9
+        if (isTopLeft) return color1
+        if (isTopRight) return color2
+        if (isBottomLeft) return color3
+        return color1
+      }
+      case 'gradient':
+      default:
+        return ''
+    }
+  }
+  
+  let defs = ''
+  if (colorStyle === 'gradient') {
+    const gradientDirection = customization.gradientDirection || 'to-br'
+
+    const svgSize = customization.size
+
+    if (gradientDirection === 'radial' || gradientDirection === 'radial-tl' || gradientDirection === 'radial-br') {
+      // 放射状グラデーション - 全体に適用
+      let cx = svgSize / 2
+      let cy = svgSize / 2
+
+      if (gradientDirection === 'radial-tl') {
+        cx = 0; cy = 0  // 左上から放射
+      } else if (gradientDirection === 'radial-br') {
+        cx = svgSize; cy = svgSize  // 右下から放射
+      }
+
+      const r = svgSize * 1.2
+      defs = `
+        <defs>
+          <radialGradient id="qr-gradient" cx="${cx}" cy="${cy}" r="${r}" fx="${cx}" fy="${cy}" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="${color1}" />
+            <stop offset="50%" stop-color="${color2}" />
+            <stop offset="100%" stop-color="${color3}" />
+          </radialGradient>
+        </defs>
+      `
+    } else {
+      // 線形グラデーション（方向別）- 全体に適用
+      let x1 = 0, y1 = 0, x2 = svgSize, y2 = svgSize
+
+      switch (gradientDirection) {
+        case 'to-r':  // 横方向（左から右）
+          x1 = 0; y1 = svgSize / 2; x2 = svgSize; y2 = svgSize / 2
+          break
+        case 'to-b':  // 縦方向（上から下）
+          x1 = svgSize / 2; y1 = 0; x2 = svgSize / 2; y2 = svgSize
+          break
+        case 'to-bl': // 右上から左下
+          x1 = svgSize; y1 = 0; x2 = 0; y2 = svgSize
+          break
+        case 'to-tr': // 左下から右上
+          x1 = 0; y1 = svgSize; x2 = svgSize; y2 = 0
+          break
+        case 'to-tl': // 右下から左上
+          x1 = svgSize; y1 = svgSize; x2 = 0; y2 = 0
+          break
+        case 'to-br': // 左上から右下
+        default:
+          x1 = 0; y1 = 0; x2 = svgSize; y2 = svgSize
+          break
+      }
+
+      defs = `
+        <defs>
+          <linearGradient id="qr-gradient" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="${color1}" />
+            <stop offset="50%" stop-color="${color2}" />
+            <stop offset="100%" stop-color="${color3}" />
+          </linearGradient>
+        </defs>
+      `
+    }
+  }
+  
   const modules: string[] = []
 
   for (let row = 0; row < moduleCount; row++) {
@@ -98,6 +193,7 @@ function generateStyledSvg(
       
       const x = (col + margin) * cellSize
       const y = (row + margin) * cellSize
+      const fillColor = colorStyle === 'gradient' ? 'url(#qr-gradient)' : getModuleColor(row, col)
       modules.push(
         `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${fillColor}" />`
       )
@@ -106,7 +202,7 @@ function generateStyledSvg(
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${customization.size}" height="${customization.size}" viewBox="0 0 ${customization.size} ${customization.size}">
-      ${gradientDef}
+      ${defs}
       <rect width="100%" height="100%" fill="${bgColor}" />
       ${modules.join('')}
     </svg>
@@ -394,6 +490,115 @@ function adjustColor(color: string, amount: number) {
   return `#${hex.toString(16).padStart(6, '0')}`
 }
 
+interface ExtractedColors {
+  colors: string[]
+  isGradient: boolean
+}
+
+async function extractDominantColorsFromImage(imageBuffer: Buffer): Promise<ExtractedColors> {
+  try {
+    // 画像を小さくリサイズしてピクセルデータを取得
+    const { data, info } = await sharp(imageBuffer)
+      .resize(32, 32, { fit: 'cover' })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const colorCounts: Map<string, number> = new Map()
+
+    // ピクセルごとに色をカウント（中心部分を重視）
+    for (let i = 0; i < data.length; i += 3) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+
+      // 白・黒・灰色・薄い色はスキップ（QRで読み取りにくい色を除外）
+      const max = Math.max(r, g, b)
+      const min = Math.min(r, g, b)
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000
+      const saturation = max - min
+
+      // 薄すぎる色（brightness > 180）は完全にスキップ
+      // 灰色っぽい色（saturation < 30）もスキップ
+      // 暗すぎる色（brightness < 40）もスキップ
+      // RGB全てが180以上も薄すぎるのでスキップ
+      if (saturation < 30 || brightness < 40 || brightness > 180) continue
+      if (r >= 180 && g >= 180 && b >= 180) continue
+
+      // 色を量子化（16段階に丸める）
+      const qr = Math.round(r / 16) * 16
+      const qg = Math.round(g / 16) * 16
+      const qb = Math.round(b / 16) * 16
+      const hex = `#${qr.toString(16).padStart(2, '0')}${qg.toString(16).padStart(2, '0')}${qb.toString(16).padStart(2, '0')}`
+
+      const pixelIndex = i / 3
+      const x = pixelIndex % info.width
+      const y = Math.floor(pixelIndex / info.width)
+      const centerX = info.width / 2
+      const centerY = info.height / 2
+      const distFromCenter = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2))
+      const maxDist = Math.sqrt(Math.pow(centerX, 2) + Math.pow(centerY, 2))
+      const weight = 1 + (1 - distFromCenter / maxDist) // 中心ほど重み大
+
+      colorCounts.set(hex, (colorCounts.get(hex) || 0) + weight)
+    }
+
+    if (colorCounts.size === 0) {
+      return { colors: [], isGradient: false }
+    }
+
+    // 出現頻度でソートして上位色を取得
+    const sortedColors = Array.from(colorCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([color]) => color)
+
+    // 類似色をまとめて、実際に異なる色だけを残す
+    const distinctColors: string[] = []
+    for (const color of sortedColors) {
+      if (distinctColors.length >= 3) break
+
+      // 既存の色と十分に異なるかチェック
+      const isDistinct = distinctColors.every(existing => {
+        const c1 = hexToRgb(color)
+        const c2 = hexToRgb(existing)
+        if (!c1 || !c2) return true
+        const diff = Math.sqrt(
+          Math.pow(c1.r - c2.r, 2) +
+          Math.pow(c1.g - c2.g, 2) +
+          Math.pow(c1.b - c2.b, 2)
+        )
+        return diff > 60 // 色差が60以上あれば異なる色とみなす
+      })
+
+      if (isDistinct) {
+        distinctColors.push(color)
+      }
+    }
+
+    // 単色か複数色かを判定
+    const isGradient = distinctColors.length >= 2
+
+    return { colors: distinctColors, isGradient }
+  } catch (error) {
+    console.warn('Failed to extract colors from image:', error)
+    return { colors: [], isGradient: false }
+  }
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null
+}
+
+interface LogoCompositionResult {
+  buffer: Buffer
+  extractedColors: string[]
+}
+
 async function composeLogoIfAny({
   qrBuffer,
   logo,
@@ -404,8 +609,8 @@ async function composeLogoIfAny({
   logo?: Buffer
   customization: Customization
   palette: MotifPalette
-}) {
-  if (!logo) return qrBuffer
+}): Promise<LogoCompositionResult> {
+  if (!logo) return { buffer: qrBuffer, extractedColors: [] }
 
   const logoSize = Math.floor(customization.size * (customization.logoSize / 100))
   const logoResized = await sharp(logo)
@@ -413,20 +618,102 @@ async function composeLogoIfAny({
     .png()
     .toBuffer()
 
-  // ロゴを中央に配置（白背景 + メインカラー枠）
+  // ロゴから色を抽出
+  const extracted = await extractDominantColorsFromImage(logo)
+
+  // 枠の色を決定（カスタム設定があればそれを使用）
+  let frameColors: string[]
+  let isGradient: boolean
+
+  if (customization.logoFrameColor && customization.logoFrameColor !== 'auto') {
+    // カスタムカラーが設定されている場合
+    frameColors = [customization.logoFrameColor]
+    isGradient = false
+  } else {
+    // 自動（ロゴから抽出した色を使用）
+    frameColors = extracted.colors.length > 0 ? extracted.colors : [palette.primary]
+    isGradient = extracted.isGradient && frameColors.length >= 2
+  }
+
+  // ロゴを中央に配置（白背景 + ロゴから抽出した色の枠）
   const framePadding = 12
   const frameSize = logoSize + framePadding * 2
   const strokeWidth = Math.max(2, Math.floor(frameSize * 0.06))
-  const corner = Math.floor(frameSize * 0.12)
-  const frameSvg = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${frameSize}" height="${frameSize}">
-      <rect x="0" y="0" width="${frameSize}" height="${frameSize}" rx="${corner}" ry="${corner}"
-        fill="#ffffff" stroke="${palette.primary}" stroke-width="${strokeWidth}" />
-    </svg>`
-  )
+
+  // 枠の形状を決定
+  const frameShape = customization.logoFrameShape || 'rounded'
+  let corner: number
+  let shapeElement: string
+
+  if (frameShape === 'circle') {
+    // 円形
+    const radius = (frameSize - strokeWidth) / 2
+    const cx = frameSize / 2
+    const cy = frameSize / 2
+    if (isGradient) {
+      const gradientId = 'logo-frame-gradient'
+      const color1 = frameColors[0]
+      const color2 = frameColors[1]
+      const color3 = frameColors[2] || color2
+      shapeElement = `
+        <defs>
+          <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
+            <stop offset="50%" style="stop-color:${color2};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${color3};stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="#ffffff" stroke="url(#${gradientId})" stroke-width="${strokeWidth}" />`
+    } else {
+      const strokeColor = frameColors[0] || palette.primary
+      shapeElement = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#ffffff" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`
+    }
+  } else {
+    // 四角形（rounded または square）
+    corner = frameShape === 'square' ? 0 : Math.floor(frameSize * 0.12)
+    if (isGradient) {
+      const gradientId = 'logo-frame-gradient'
+      const color1 = frameColors[0]
+      const color2 = frameColors[1]
+      const color3 = frameColors[2] || color2
+      shapeElement = `
+        <defs>
+          <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
+            <stop offset="50%" style="stop-color:${color2};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${color3};stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect x="${strokeWidth / 2}" y="${strokeWidth / 2}" width="${frameSize - strokeWidth}" height="${frameSize - strokeWidth}" rx="${corner}" ry="${corner}"
+          fill="#ffffff" stroke="url(#${gradientId})" stroke-width="${strokeWidth}" />`
+    } else {
+      const strokeColor = frameColors[0] || palette.primary
+      shapeElement = `<rect x="${strokeWidth / 2}" y="${strokeWidth / 2}" width="${frameSize - strokeWidth}" height="${frameSize - strokeWidth}" rx="${corner}" ry="${corner}"
+          fill="#ffffff" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`
+    }
+  }
+
+  const frameSvgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${frameSize}" height="${frameSize}">${shapeElement}</svg>`
+
+  const frameSvg = Buffer.from(frameSvgContent)
+
+  // 円形の場合はロゴも丸くマスク
+  let logoToComposite = logoResized
+  if (frameShape === 'circle') {
+    const maskSvg = Buffer.from(
+      `<svg width="${logoSize}" height="${logoSize}" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="${logoSize / 2}" cy="${logoSize / 2}" r="${logoSize / 2}" fill="white"/>
+      </svg>`
+    )
+    logoToComposite = await sharp(logoResized)
+      .composite([{ input: maskSvg, blend: 'dest-in' }])
+      .png()
+      .toBuffer()
+  }
+
   const logoWithFrame = await sharp(frameSvg)
     .composite([{
-      input: logoResized,
+      input: logoToComposite,
       left: framePadding,
       top: framePadding
     }])
@@ -437,7 +724,7 @@ async function composeLogoIfAny({
   const logoX = Math.floor((customization.size - finalSize) / 2)
   const logoY = Math.floor((customization.size - finalSize) / 2)
 
-  return sharp(qrBuffer)
+  const resultBuffer = await sharp(qrBuffer)
     .composite([{
       input: logoWithFrame,
       left: logoX,
@@ -445,6 +732,8 @@ async function composeLogoIfAny({
     }])
     .png()
     .toBuffer()
+
+  return { buffer: resultBuffer, extractedColors: extracted.colors }
 }
 
 async function composeFrameIfAny({

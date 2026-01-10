@@ -146,16 +146,6 @@ function buildFallbackDesigns(
   const candidates: Design[] = [
     {
       id: 'design-a',
-      name: 'ベーストーン',
-      description: 'ブランド色を素直に活用',
-      fgColor: base,
-      bgColor: softBg,
-      style: 'minimal',
-      cornerStyle: 'square',
-      motifKeyword: motif
-    },
-    {
-      id: 'design-b',
       name: 'ハイコントラスト',
       description: 'コントラスト重視で視認性UP',
       fgColor: accent,
@@ -165,13 +155,23 @@ function buildFallbackDesigns(
       motifKeyword: motif
     },
     {
-      id: 'design-c',
+      id: 'design-b',
       name: 'バブル',
       description: '丸ドットで柔らかい印象',
       fgColor: vivid,
       bgColor: '#FFFFFF',
       style: 'colorful',
       cornerStyle: 'dots',
+      motifKeyword: motif
+    },
+    {
+      id: 'design-c',
+      name: 'ベーストーン',
+      description: 'ブランド色を素直に活用',
+      fgColor: base,
+      bgColor: softBg,
+      style: 'minimal',
+      cornerStyle: 'square',
       motifKeyword: motif
     }
   ]

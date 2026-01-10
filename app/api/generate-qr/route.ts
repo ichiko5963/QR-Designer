@@ -22,6 +22,8 @@ const GenerateQRSchema = z.object({
     cornerRadius: z.number().min(0).max(50),
     logoSize: z.number().min(10).max(35),
     logoBackground: z.boolean(),
+    logoFrameShape: z.enum(['square', 'rounded', 'circle']).optional(),
+    logoFrameColor: z.string().optional(),
     errorCorrectionLevel: z.enum(['L', 'M', 'Q', 'H']),
     dotStyle: z.string(),
     outerShape: z.string().optional(),
@@ -44,6 +46,9 @@ const GenerateQRSchema = z.object({
     patternGradientStyle: z.string().optional(),
     patternColor1: z.string().optional(),
     patternColor2: z.string().optional(),
+    patternColor3: z.string().optional(),
+    colorStyle: z.string().optional(),
+    gradientDirection: z.string().optional(),
     patternBackgroundTransparent: z.boolean().optional(),
     patternBackgroundGradientEnabled: z.boolean().optional(),
     patternBackgroundGradientStyle: z.string().optional(),
@@ -78,13 +83,15 @@ export async function POST(req: Request) {
     }
     
     // QRコード生成
-    const qrDataURL = await generateQRCodeAsDataURL({
+    const qrResult = await generateQRCodeAsDataURL({
       url,
       design: design as Design,
       customization: customization as Customization,
       logo: logoBuffer
     })
-    
+    const qrDataURL = qrResult.dataUrl
+    const extractedLogoColors = qrResult.extractedLogoColors
+
     // 履歴保存がリクエストされた場合のみ認証チェック
     if (saveToHistory) {
       const supabase = await createClient()
@@ -92,25 +99,26 @@ export async function POST(req: Request) {
         data: { user },
         error: authError
       } = await supabase.auth.getUser()
-      
+
       if (authError || !user) {
         return NextResponse.json({
           success: true,
           qrCode: qrDataURL,
+          extractedLogoColors,
           requiresAuth: true,
           message: '履歴を保存するにはGoogleアカウントでログインしてください'
         })
       }
-      
+
       // レート制限チェック（無料プランの場合）
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('plan_type, last_generated_at, total_generated')
         .eq('user_id', user.id)
         .single()
-      
+
       const planType = profile?.plan_type || 'free'
-      
+
       if (planType === 'free') {
         const lastGenerated = profile?.last_generated_at
           ? new Date(profile.last_generated_at)
@@ -119,19 +127,20 @@ export async function POST(req: Request) {
         const hoursSinceLastGeneration = lastGenerated
           ? (now.getTime() - lastGenerated.getTime()) / (1000 * 60 * 60)
           : 168 // 初回は168時間（1週間）経過とみなす
-        
+
         if (hoursSinceLastGeneration < 168) {
           const remainingHours = Math.ceil(168 - hoursSinceLastGeneration)
           const remainingDays = Math.ceil(remainingHours / 24)
           return NextResponse.json({
             success: true,
             qrCode: qrDataURL,
+            extractedLogoColors,
             rateLimitExceeded: true,
             message: `無料プランは1週間に1回までです。次回生成可能まであと${remainingDays}日です。有料プラン（$4/月）で無制限利用できます。`
           })
         }
       }
-      
+
       // 履歴に保存
       await supabase
         .from('qr_history')
@@ -143,7 +152,7 @@ export async function POST(req: Request) {
           qr_image_url: qrDataURL,
           format: 'png'
         })
-      
+
       // ユーザープロフィール更新
       await supabase
         .from('user_profiles')
@@ -156,10 +165,11 @@ export async function POST(req: Request) {
           onConflict: 'user_id'
         })
     }
-    
+
     return NextResponse.json({
       success: true,
-      qrCode: qrDataURL
+      qrCode: qrDataURL,
+      extractedLogoColors
     })
   } catch (error) {
     console.error('Error generating QR code:', error)

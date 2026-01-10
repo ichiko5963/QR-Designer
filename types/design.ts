@@ -15,6 +15,8 @@ export interface Customization {
   cornerRadius: number
   logoSize: number
   logoBackground: boolean
+  logoFrameShape?: 'square' | 'rounded' | 'circle'
+  logoFrameColor?: string | 'auto'
   errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H'
   dotStyle: 'square' | 'rounded' | 'round' | 'rounder' | 'dots' | 'dot' | 'heart' | 'diamond'
   frameEnabled?: boolean
@@ -40,6 +42,9 @@ export interface Customization {
   patternGradientStyle?: 'linear' | 'radial'
   patternColor1?: string
   patternColor2?: string
+  patternColor3?: string
+  colorStyle?: 'gradient' | 'stripe' | 'random' | 'radial' | 'corners'
+  gradientDirection?: 'to-br' | 'to-bl' | 'to-tr' | 'to-tl' | 'to-r' | 'to-b' | 'radial' | 'radial-tl' | 'radial-br'
   patternBackgroundTransparent?: boolean
   patternBackgroundGradientEnabled?: boolean
   patternBackgroundGradientStyle?: 'linear' | 'radial'
