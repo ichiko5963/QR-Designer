@@ -93,6 +93,19 @@ export default function DashboardHeader({ user, plan }: DashboardHeaderProps) {
               <button
                 onClick={() => {
                   setIsDropdownOpen(false)
+                  router.push('/dashboard/settings/billing')
+                }}
+                className="w-[calc(100%-1.5rem)] mx-3 mt-3 mb-2 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#E6A24C] to-[#D4923D] px-3 py-2 text-sm font-semibold text-white hover:from-[#F0B86E] hover:to-[#E6A24C] transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                {plan === 'free' ? 'プランをアップグレード' : 'プランを確認'}
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsDropdownOpen(false)
                   router.push('/dashboard/settings')
                 }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#1B1723]/70 hover:bg-[#171158]/5 transition-colors"

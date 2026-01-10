@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -124,6 +124,76 @@ export default function BillingPage() {
   }
 
   const currentPlan = subscription?.plan_name || 'free'
+  const planLookup = useMemo(() => {
+    return plans.reduce<Record<string, Plan>>((acc, plan) => {
+      acc[plan.name] = plan
+      return acc
+    }, {})
+  }, [plans])
+
+  const docPlans = [
+    {
+      key: 'free-guest',
+      title: 'Free（ログインなし）',
+      price: '無料 / 月2回',
+      description: 'ログイン不要で気軽に試せる体験プラン',
+      features: [
+        '月2回までQR生成（IPアドレス制限）',
+        '1024px PNGダウンロード（透かしなし）',
+        'AIデザイン / カスタマイズ機能は全て利用可能',
+        '履歴やWiFi・短縮URLなどの追加機能は非対応'
+      ] as const,
+      cta: {
+        label: 'ログインで拡張',
+        action: () => router.push('/api/auth/signin?redirectTo=%2Fdashboard')
+      }
+    },
+    {
+      key: 'free',
+      title: 'Free（Googleログイン）',
+      price: '無料 / 無制限',
+      description: 'Googleログインで日常利用できる管理プラン',
+      features: [
+        '無制限でQR生成・再ダウンロード',
+        '1024px PNG / 透かしなし',
+        '履歴保存・ダッシュボード管理',
+        'WiFi・短縮URL・メール/SMS/電話QR対応'
+      ] as const,
+      planName: 'free'
+    },
+    {
+      key: 'personal',
+      title: 'Personal',
+      price: '¥499 / 月',
+      description: 'テンプレ保存と日常運用を効率化',
+      features: [
+        '無制限生成 / 2048px PNG',
+        'テンプレート保存10件＆スマート分類',
+        '短縮URL（カスタムスラッグ）・WiFi・vCard',
+        'リンク切れ検知・日常タスクの一元管理'
+      ] as const,
+      planName: 'personal',
+      popular: true
+    },
+    {
+      key: 'pro',
+      title: 'Pro',
+      price: '¥980 / 月',
+      description: '動的QR・高度解析・CSV一括などフル機能',
+      features: [
+        '4096px / SVG・PDF出力',
+        'テンプレ・再編集無制限',
+        '動的QR＋スキャン分析・リダイレクト管理',
+        'CSV一括生成（月500件）・パスワード/有効期限'
+      ] as const,
+      planName: 'pro'
+    }
+  ] as const
+
+  const scrollToPlans = () => {
+    const el = document.getElementById('plan-options')
+    el?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   return (
     <div className="max-w-4xl space-y-8">
@@ -152,7 +222,14 @@ export default function BillingPage() {
               </p>
             )}
           </div>
-          {currentPlan !== 'free' && (
+          {currentPlan === 'free' ? (
+            <button
+              onClick={scrollToPlans}
+              className="px-4 py-2 text-sm font-semibold text-[#171158] bg-white rounded-xl hover:bg-white/90 transition-colors"
+            >
+              プランをアップグレード
+            </button>
+          ) : (
             <button
               onClick={handleManageSubscription}
               className="px-4 py-2 text-sm font-semibold text-[#171158] bg-white rounded-xl hover:bg-white/90 transition-colors"
@@ -164,134 +241,101 @@ export default function BillingPage() {
       </div>
 
       {/* プラン比較 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {plans.map((plan) => {
-          const isCurrentPlan = plan.name === currentPlan
-          const isPopular = plan.name === 'pro'
-          const features = plan.features
+      <div id="plan-options" className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {docPlans.map((planDef) => {
+          const supabasePlan = planDef.planName ? planLookup[planDef.planName] : undefined
+          const isCurrent = planDef.planName ? planDef.planName === currentPlan : false
+          const isPopular = planDef.popular
+
+          const renderButton = () => {
+            if (planDef.cta) {
+              return (
+                <button
+                  onClick={planDef.cta.action}
+                  className="w-full py-2.5 text-sm font-bold rounded-xl text-white bg-gradient-to-r from-[#171158] to-[#1B1723] hover:from-[#2A2478] hover:to-[#171158] shadow-lg shadow-[#171158]/20"
+                >
+                  {planDef.cta.label}
+                </button>
+              )
+            }
+
+            if (isCurrent) {
+              return (
+                <button
+                  disabled
+                  className="w-full py-2.5 text-sm font-semibold text-[#1B1723]/50 bg-[#171158]/5 rounded-xl cursor-not-allowed"
+                >
+                  現在のプラン
+                </button>
+              )
+            }
+
+            if (!supabasePlan || !supabasePlan.stripe_price_id_monthly) {
+              return (
+                <button
+                  disabled
+                  className="w-full py-2.5 text-sm font-semibold text-[#1B1723]/50 bg-[#171158]/5 rounded-xl cursor-not-allowed"
+                >
+                  準備中
+                </button>
+              )
+            }
+
+            return (
+              <button
+                onClick={() => handleCheckout(planDef.planName!, supabasePlan.stripe_price_id_monthly)}
+                disabled={!!checkoutLoading}
+                className={`w-full py-2.5 text-sm font-bold rounded-xl transition-all ${
+                  isPopular
+                    ? 'text-white bg-gradient-to-r from-[#171158] to-[#1B1723] hover:from-[#2A2478] hover:to-[#171158] shadow-lg shadow-[#171158]/20'
+                    : 'text-[#171158] bg-[#171158]/10 hover:bg-[#171158]/20'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {checkoutLoading === planDef.planName ? '処理中...' : planDef.planName === 'free' ? '無料' : 'アップグレード'}
+              </button>
+            )
+          }
 
           return (
             <div
-              key={plan.name}
+              key={planDef.key}
               className={`relative bg-white rounded-2xl border-2 p-5 transition-all ${
-                isCurrentPlan
+                isCurrent
                   ? 'border-[#E6A24C] shadow-lg shadow-[#E6A24C]/20'
                   : isPopular
                     ? 'border-[#171158] shadow-lg shadow-[#171158]/10'
                     : 'border-[#171158]/10 hover:border-[#171158]/30'
               }`}
             >
-              {isPopular && !isCurrentPlan && (
+              {isPopular && !isCurrent && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-[#171158] to-[#1B1723] text-white text-xs font-bold rounded-full">
                   人気
                 </div>
               )}
-
-              {isCurrentPlan && (
+              {isCurrent && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-[#E6A24C] to-[#D4923D] text-white text-xs font-bold rounded-full">
                   現在のプラン
                 </div>
               )}
 
               <div className="text-center mb-4">
-                <h3 className="text-lg font-bold text-[#1B1723]">{plan.display_name}</h3>
+                <h3 className="text-lg font-bold text-[#1B1723]">{planDef.title}</h3>
+                <p className="text-sm text-[#1B1723]/60 mt-1">{planDef.description}</p>
                 <div className="mt-2">
-                  <span className="text-3xl font-bold text-[#1B1723]">
-                    ¥{plan.price_monthly.toLocaleString()}
-                  </span>
-                  <span className="text-[#1B1723]/50 text-sm">/月</span>
+                  <span className="text-2xl font-bold text-[#1B1723]">{planDef.price}</span>
                 </div>
               </div>
 
-              <ul className="space-y-2 mb-6 text-sm">
-                <li className="flex items-center gap-2 text-[#1B1723]/70">
-                  <CheckIcon />
-                  {features.qr_limit_per_month === -1
-                    ? '無制限QR生成'
-                    : `月${features.qr_limit_per_month}回生成`
-                  }
-                </li>
-                <li className="flex items-center gap-2 text-[#1B1723]/70">
-                  <CheckIcon />
-                  最大{features.max_resolution}px
-                </li>
-                {features.watermark_removable && (
-                  <li className="flex items-center gap-2 text-[#1B1723]/70">
+              <ul className="space-y-2 mb-6 text-sm text-[#1B1723]/70">
+                {planDef.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
                     <CheckIcon />
-                    透かしなし
+                    <span>{feature}</span>
                   </li>
-                )}
-                {features.logo_storage_mb > 0 && (
-                  <li className="flex items-center gap-2 text-[#1B1723]/70">
-                    <CheckIcon />
-                    ロゴ保存 {features.logo_storage_mb}MB
-                  </li>
-                )}
-                {features.svg_pdf_export && (
-                  <li className="flex items-center gap-2 text-[#1B1723]/70">
-                    <CheckIcon />
-                    SVG/PDF出力
-                  </li>
-                )}
-                {features.dynamic_qr_limit > 0 && (
-                  <li className="flex items-center gap-2 text-[#1B1723]/70">
-                    <CheckIcon />
-                    動的QR {features.dynamic_qr_limit}件
-                  </li>
-                )}
-                {features.scan_analytics && (
-                  <li className="flex items-center gap-2 text-[#1B1723]/70">
-                    <CheckIcon />
-                    スキャン分析
-                  </li>
-                )}
-                {features.priority_support && (
-                  <li className="flex items-center gap-2 text-[#1B1723]/70">
-                    <CheckIcon />
-                    優先サポート
-                  </li>
-                )}
+                ))}
               </ul>
 
-              {isCurrentPlan ? (
-                <button
-                  disabled
-                  className="w-full py-2.5 text-sm font-semibold text-[#1B1723]/50 bg-[#171158]/5 rounded-xl cursor-not-allowed"
-                >
-                  現在のプラン
-                </button>
-              ) : plan.name === 'free' ? (
-                <button
-                  disabled
-                  className="w-full py-2.5 text-sm font-semibold text-[#1B1723]/50 bg-[#171158]/5 rounded-xl cursor-not-allowed"
-                >
-                  無料
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleCheckout(plan.name, plan.stripe_price_id_monthly)}
-                  disabled={!!checkoutLoading || !plan.stripe_price_id_monthly}
-                  className={`w-full py-2.5 text-sm font-bold rounded-xl transition-all ${
-                    isPopular
-                      ? 'text-white bg-gradient-to-r from-[#171158] to-[#1B1723] hover:from-[#2A2478] hover:to-[#171158] shadow-lg shadow-[#171158]/20'
-                      : 'text-[#171158] bg-[#171158]/10 hover:bg-[#171158]/20'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {checkoutLoading === plan.name ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      処理中...
-                    </span>
-                  ) : plan.stripe_price_id_monthly ? (
-                    'アップグレード'
-                  ) : (
-                    '準備中'
-                  )}
-                </button>
-              )}
+              {renderButton()}
             </div>
           )
         })}

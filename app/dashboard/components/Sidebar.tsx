@@ -127,11 +127,11 @@ export default function Sidebar({ user, plan }: SidebarProps) {
   }
 
   // プラン表示名のマッピング
-  const planDisplayNames: Record<string, string> = {
-    free: 'Free',
-    personal: 'Personal',
-    pro: 'Pro',
-    business: 'Business',
+const planDisplayNames: Record<string, string> = {
+  free: 'Free',
+  personal: 'Personal',
+  pro: 'Pro',
+  business: 'Business',
     agency: 'Agency',
     enterprise: 'Enterprise'
   }
@@ -218,7 +218,7 @@ export default function Sidebar({ user, plan }: SidebarProps) {
               {[
                 { name: '設定', href: '/dashboard/settings', icon: Cog6ToothIcon, highlight: false },
                 {
-                  name: plan === 'free' ? 'プランをアップグレード' : 'プラン管理',
+                  name: 'プランを確認',
                   href: '/dashboard/settings/billing',
                   icon: CreditCardIcon,
                   highlight: plan === 'free'
@@ -238,7 +238,10 @@ export default function Sidebar({ user, plan }: SidebarProps) {
                       }`}
                     >
                       <item.icon className="h-5 w-5 shrink-0" />
-                      {item.name}
+                      <span className="flex-1">{item.name}</span>
+                      {item.name === 'プランを確認' && plan === 'free' && (
+                        <span className="text-xs font-bold text-[#E6A24C]">NEW</span>
+                      )}
                     </Link>
                   </li>
                 )
