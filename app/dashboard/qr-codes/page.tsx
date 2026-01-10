@@ -20,7 +20,12 @@ interface QRHistory {
   url: string
   design_name: string | null
   qr_image_url: string | null
+  page_title: string | null
   created_at: string
+  short_url?: {
+    code: string
+    short_url: string
+  } | null
 }
 
 type TabType = 'history' | 'dynamic'
@@ -39,6 +44,10 @@ export default function QRCodesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editUrl, setEditUrl] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
+  const [selectedQR, setSelectedQR] = useState<QRHistory | null>(null)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editTitleValue, setEditTitleValue] = useState('')
+  const [savingTitle, setSavingTitle] = useState(false)
 
   const fetchData = useCallback(async () => {
     const supabase = createClient()
@@ -69,7 +78,29 @@ export default function QRCodesPage() {
       .order('created_at', { ascending: false })
       .limit(50)
 
-    setQrHistory(history || [])
+    // 短縮URL情報を取得してマージ
+    if (history && history.length > 0) {
+      const historyIds = history.map(h => h.id)
+      const { data: shortUrls } = await supabase
+        .from('short_urls')
+        .select('qr_history_id, code')
+        .in('qr_history_id', historyIds)
+
+      const shortUrlMap = new Map(
+        shortUrls?.map(s => [s.qr_history_id, {
+          code: s.code,
+          short_url: `${window.location.origin}/r/${s.code}`
+        }]) || []
+      )
+
+      const historyWithShortUrls = history.map(h => ({
+        ...h,
+        short_url: shortUrlMap.get(h.id) || null
+      }))
+      setQrHistory(historyWithShortUrls)
+    } else {
+      setQrHistory([])
+    }
 
     // 動的QRコード取得
     if (['pro', 'business', 'agency', 'enterprise'].includes(plan)) {
@@ -89,6 +120,18 @@ export default function QRCodesPage() {
 
   useEffect(() => {
     fetchData()
+
+    // 画面にフォーカスが戻ったときにもデータを再取得
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [fetchData])
 
   const handleCreate = async () => {
@@ -174,6 +217,61 @@ export default function QRCodesPage() {
     setTimeout(() => setCopied(null), 2000)
   }
 
+  // 画像をクリップボードにコピー
+  const copyImageToClipboard = async (imageUrl: string) => {
+    try {
+      const response = await fetch(imageUrl)
+      const blob = await response.blob()
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob })
+      ])
+      setCopied('image')
+      setTimeout(() => setCopied(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy image:', error)
+      // フォールバック: 画像URLをコピー
+      navigator.clipboard.writeText(imageUrl)
+      setCopied('image')
+      setTimeout(() => setCopied(null), 2000)
+    }
+  }
+
+  // ページタイトルを更新
+  const handleUpdateTitle = async () => {
+    if (!selectedQR || !editTitleValue.trim()) return
+
+    setSavingTitle(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('qr_history')
+        .update({ page_title: editTitleValue.trim() })
+        .eq('id', selectedQR.id)
+
+      if (!error) {
+        // ローカル状態も更新
+        setSelectedQR({ ...selectedQR, page_title: editTitleValue.trim() })
+        setQrHistory(prev => prev.map(qr =>
+          qr.id === selectedQR.id ? { ...qr, page_title: editTitleValue.trim() } : qr
+        ))
+        setEditingTitle(false)
+      }
+    } catch (error) {
+      console.error('Failed to update title:', error)
+    } finally {
+      setSavingTitle(false)
+    }
+  }
+
+  // ファイル名用にタイトルをサニタイズ
+  const sanitizeFilename = (title: string): string => {
+    return title
+      .replace(/[<>:"/\\|?*]/g, '') // 無効な文字を削除
+      .replace(/\s+/g, '_') // スペースをアンダースコアに
+      .substring(0, 100) // 長すぎる場合は切り詰め
+      || 'qr-code'
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -248,9 +346,10 @@ export default function QRCodesPage() {
           {qrHistory.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {qrHistory.map((qr) => (
-                <div
+                <button
                   key={qr.id}
-                  className="bg-white rounded-2xl border border-[#171158]/5 p-4 hover:border-[#E6A24C]/30 hover:shadow-lg transition-all"
+                  onClick={() => setSelectedQR(qr)}
+                  className="bg-white rounded-2xl border border-[#171158]/5 p-4 hover:border-[#E6A24C]/30 hover:shadow-lg transition-all text-left"
                 >
                   <div className="aspect-square bg-[#FAFBFC] rounded-xl p-3 mb-3">
                     {qr.qr_image_url && (
@@ -263,14 +362,14 @@ export default function QRCodesPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-[#1B1723] truncate text-sm">
-                      {qr.design_name || 'QRコード'}
+                      {qr.page_title || qr.design_name || 'QRコード'}
                     </p>
                     <p className="text-xs text-[#1B1723]/50 truncate mt-0.5">{qr.url}</p>
                     <p className="text-xs text-[#1B1723]/40 mt-1">
                       {new Date(qr.created_at).toLocaleDateString('ja-JP')}
                     </p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           ) : (
@@ -499,6 +598,194 @@ export default function QRCodesPage() {
               >
                 {creating ? '作成中...' : '作成'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR詳細モーダル */}
+      {selectedQR && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-[#1B1723]">QRコード詳細</h2>
+              <button
+                onClick={() => {
+                  setSelectedQR(null)
+                  setEditingTitle(false)
+                }}
+                className="p-2 text-[#1B1723]/40 hover:text-[#1B1723] transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* QRコード画像 */}
+            <div className="bg-[#FAFBFC] rounded-xl p-6 mb-6">
+              {selectedQR.qr_image_url && (
+                <img
+                  src={selectedQR.qr_image_url}
+                  alt="QR Code"
+                  className="w-48 h-48 mx-auto object-contain"
+                />
+              )}
+            </div>
+
+            {/* 情報 */}
+            <div className="space-y-4">
+              {/* ページタイトル（編集可能） */}
+              <div>
+                <label className="block text-xs font-medium text-[#1B1723]/50 mb-1">ページタイトル</label>
+                {editingTitle ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editTitleValue}
+                      onChange={(e) => setEditTitleValue(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-[#171158]/10 rounded-lg focus:outline-none focus:border-[#E6A24C]"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleUpdateTitle}
+                      disabled={savingTitle}
+                      className="px-3 py-2 text-sm font-medium text-white bg-[#E6A24C] rounded-lg hover:bg-[#D4923D] disabled:opacity-50"
+                    >
+                      {savingTitle ? '...' : '保存'}
+                    </button>
+                    <button
+                      onClick={() => setEditingTitle(false)}
+                      className="px-3 py-2 text-sm font-medium text-[#1B1723]/60 hover:text-[#1B1723]"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <p className="text-[#1B1723] font-semibold flex-1">
+                      {selectedQR.page_title || '（タイトルなし）'}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setEditTitleValue(selectedQR.page_title || '')
+                        setEditingTitle(true)
+                      }}
+                      className="p-1.5 text-[#1B1723]/40 hover:text-[#E6A24C] transition-colors"
+                      title="タイトルを編集"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 画像コピー */}
+              <div>
+                <label className="block text-xs font-medium text-[#1B1723]/50 mb-1">QRコード画像</label>
+                <button
+                  onClick={() => selectedQR.qr_image_url && copyImageToClipboard(selectedQR.qr_image_url)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-[#171158] bg-[#171158]/5 rounded-lg hover:bg-[#171158]/10 transition-colors"
+                >
+                  {copied === 'image' ? (
+                    <>
+                      <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-green-600">コピーしました</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>画像をコピー</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 元のURL */}
+              <div>
+                <label className="block text-xs font-medium text-[#1B1723]/50 mb-1">元のURL</label>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={selectedQR.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#171158] hover:underline truncate flex-1 text-sm"
+                  >
+                    {selectedQR.url}
+                  </a>
+                  <button
+                    onClick={() => copyToClipboard(selectedQR.url, 'original-url')}
+                    className="p-2 text-[#1B1723]/40 hover:text-[#E6A24C] transition-colors shrink-0"
+                    title="URLをコピー"
+                  >
+                    {copied === 'original-url' ? (
+                      <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* 短縮URL */}
+              {selectedQR.short_url && (
+                <div>
+                  <label className="block text-xs font-medium text-[#1B1723]/50 mb-1">短縮URL</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#E6A24C] font-mono flex-1 truncate text-sm">
+                      {selectedQR.short_url.short_url}
+                    </span>
+                    <button
+                      onClick={() => copyToClipboard(selectedQR.short_url!.short_url, 'short-url')}
+                      className="p-2 text-[#1B1723]/40 hover:text-[#E6A24C] transition-colors shrink-0"
+                      title="短縮URLをコピー"
+                    >
+                      {copied === 'short-url' ? (
+                        <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 作成日 */}
+              <div>
+                <label className="block text-xs font-medium text-[#1B1723]/50 mb-1">作成日</label>
+                <p className="text-[#1B1723] text-sm">
+                  {new Date(selectedQR.created_at).toLocaleString('ja-JP')}
+                </p>
+              </div>
+            </div>
+
+            {/* ダウンロードボタン */}
+            <div className="mt-6 pt-6 border-t border-[#171158]/5">
+              <a
+                href={selectedQR.qr_image_url || '#'}
+                download={`${sanitizeFilename(selectedQR.page_title || selectedQR.design_name || 'qr-code')}.png`}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#171158] to-[#1B1723] rounded-xl hover:from-[#2A2478] hover:to-[#171158] shadow-lg transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                ダウンロード
+              </a>
             </div>
           </div>
         </div>

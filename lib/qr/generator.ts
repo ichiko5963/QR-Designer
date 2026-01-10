@@ -497,38 +497,54 @@ interface ExtractedColors {
 
 async function extractDominantColorsFromImage(imageBuffer: Buffer): Promise<ExtractedColors> {
   try {
-    // 画像を小さくリサイズしてピクセルデータを取得
+    // 画像を小さくリサイズしてピクセルデータを取得（48x48でより精細に）
     const { data, info } = await sharp(imageBuffer)
-      .resize(32, 32, { fit: 'cover' })
+      .resize(48, 48, { fit: 'cover' })
       .removeAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true })
 
-    const colorCounts: Map<string, number> = new Map()
+    // 色情報を保持する型
+    interface ColorInfo {
+      count: number
+      saturation: number
+      brightness: number
+      originalHex: string
+    }
+    const colorCounts: Map<string, ColorInfo> = new Map()
 
-    // ピクセルごとに色をカウント（中心部分を重視）
+    // ピクセルごとに色をカウント
     for (let i = 0; i < data.length; i += 3) {
       const r = data[i]
       const g = data[i + 1]
       const b = data[i + 2]
 
-      // 白・黒・灰色・薄い色はスキップ（QRで読み取りにくい色を除外）
       const max = Math.max(r, g, b)
       const min = Math.min(r, g, b)
       const brightness = (r * 299 + g * 587 + b * 114) / 1000
-      const saturation = max - min
 
-      // 薄い色やグレーは除外するが、明るめのブランドカラーは残す
-      if (saturation < 20 || brightness < 30) continue
-      if (brightness > 240) continue
-      if (r >= 240 && g >= 240 && b >= 240) continue
+      // HSV彩度（相対彩度）: 0-1の範囲
+      const relativeSaturation = max > 0 ? (max - min) / max : 0
 
-      // 色を量子化（16段階に丸める）
-      const qr = Math.round(r / 16) * 16
-      const qg = Math.round(g / 16) * 16
-      const qb = Math.round(b / 16) * 16
-      const hex = `#${qr.toString(16).padStart(2, '0')}${qg.toString(16).padStart(2, '0')}${qb.toString(16).padStart(2, '0')}`
+      // 除外条件（より緩やかに）:
+      // 1. 完全に黒（RGB全て15以下）
+      if (r <= 15 && g <= 15 && b <= 15) continue
+      // 2. 完全に白（RGB全て250以上）
+      if (r >= 250 && g >= 250 && b >= 250) continue
+      // 3. ほぼ白（明るさ240以上 かつ 彩度5%未満）
+      if (brightness > 240 && relativeSaturation < 0.05) continue
+      // 4. 純粋なグレー（彩度3%未満）
+      if (relativeSaturation < 0.03) continue
 
+      // 色を量子化（24段階に丸める＝より細かく）
+      const step = 11 // 255 / 23 ≈ 11
+      const qr = Math.round(r / step) * step
+      const qg = Math.round(g / step) * step
+      const qb = Math.round(b / step) * step
+      const hex = `#${Math.min(255, qr).toString(16).padStart(2, '0')}${Math.min(255, qg).toString(16).padStart(2, '0')}${Math.min(255, qb).toString(16).padStart(2, '0')}`
+      const originalHex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+
+      // 位置に基づく重み（中心と端の両方を考慮）
       const pixelIndex = i / 3
       const x = pixelIndex % info.width
       const y = Math.floor(pixelIndex / info.width)
@@ -536,28 +552,53 @@ async function extractDominantColorsFromImage(imageBuffer: Buffer): Promise<Extr
       const centerY = info.height / 2
       const distFromCenter = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2))
       const maxDist = Math.sqrt(Math.pow(centerX, 2) + Math.pow(centerY, 2))
-      const weight = 1 + (1 - distFromCenter / maxDist) // 中心ほど重み大
+      const positionWeight = 1 + (1 - distFromCenter / maxDist) * 0.5
 
-      colorCounts.set(hex, (colorCounts.get(hex) || 0) + weight)
+      // 彩度ボーナス（彩度が高い色はブランドカラーの可能性が高い）
+      const saturationBonus = 1 + relativeSaturation * 2
+
+      const weight = positionWeight * saturationBonus
+
+      const existing = colorCounts.get(hex)
+      if (existing) {
+        existing.count += weight
+        // より彩度の高いオリジナル色を保持
+        if (relativeSaturation > existing.saturation) {
+          existing.saturation = relativeSaturation
+          existing.originalHex = originalHex
+        }
+      } else {
+        colorCounts.set(hex, {
+          count: weight,
+          saturation: relativeSaturation,
+          brightness,
+          originalHex
+        })
+      }
     }
 
     if (colorCounts.size === 0) {
       return { colors: [], isGradient: false }
     }
 
-    // 出現頻度でソートして上位色を取得
-    const sortedColors = Array.from(colorCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([color]) => color)
+    // 彩度と出現頻度の両方を考慮してスコアリング
+    const scoredColors = Array.from(colorCounts.entries())
+      .map(([hex, info]) => ({
+        hex: info.originalHex, // オリジナルの色を使用
+        score: info.count * (1 + info.saturation), // 彩度が高いほどスコアアップ
+        saturation: info.saturation,
+        brightness: info.brightness
+      }))
+      .sort((a, b) => b.score - a.score)
 
     // 類似色をまとめて、実際に異なる色だけを残す
     const distinctColors: string[] = []
-    for (const color of sortedColors) {
-      if (distinctColors.length >= 3) break
+    for (const colorInfo of scoredColors) {
+      if (distinctColors.length >= 5) break // より多くの色を候補に
 
       // 既存の色と十分に異なるかチェック
       const isDistinct = distinctColors.every(existing => {
-        const c1 = hexToRgb(color)
+        const c1 = hexToRgb(colorInfo.hex)
         const c2 = hexToRgb(existing)
         if (!c1 || !c2) return true
         const diff = Math.sqrt(
@@ -565,11 +606,11 @@ async function extractDominantColorsFromImage(imageBuffer: Buffer): Promise<Extr
           Math.pow(c1.g - c2.g, 2) +
           Math.pow(c1.b - c2.b, 2)
         )
-        return diff > 60 // 色差が60以上あれば異なる色とみなす
+        return diff > 50 // 色差閾値を少し下げて、似た色も許容
       })
 
       if (isDistinct) {
-        distinctColors.push(color)
+        distinctColors.push(colorInfo.hex)
       }
     }
 
@@ -633,13 +674,50 @@ async function composeLogoIfAny({
     isGradient = extracted.isGradient && frameColors.length >= 2
   }
 
+  // 枠の形状を決定
+  const frameShape = customization.logoFrameShape || 'rounded'
+
+  // 枠なしの場合は白背景 + ロゴを配置（枠線なし）
+  if (frameShape === 'none') {
+    const framePadding = 12
+    const frameSize = logoSize + framePadding * 2
+
+    // 白い背景（角丸、枠線なし）
+    const whiteBgSvg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${frameSize}" height="${frameSize}">
+        <rect x="0" y="0" width="${frameSize}" height="${frameSize}" rx="${Math.floor(frameSize * 0.12)}" ry="${Math.floor(frameSize * 0.12)}" fill="#ffffff" />
+      </svg>`
+    )
+
+    const logoWithBg = await sharp(whiteBgSvg)
+      .composite([{
+        input: logoResized,
+        left: framePadding,
+        top: framePadding
+      }])
+      .png()
+      .toBuffer()
+
+    const logoX = Math.floor((customization.size - frameSize) / 2)
+    const logoY = Math.floor((customization.size - frameSize) / 2)
+
+    const resultBuffer = await sharp(qrBuffer)
+      .composite([{
+        input: logoWithBg,
+        left: logoX,
+        top: logoY
+      }])
+      .png()
+      .toBuffer()
+
+    return { buffer: resultBuffer, extractedColors: extracted.colors }
+  }
+
   // ロゴを中央に配置（白背景 + ロゴから抽出した色の枠）
   const framePadding = 12
   const frameSize = logoSize + framePadding * 2
   const strokeWidth = Math.max(2, Math.floor(frameSize * 0.06))
 
-  // 枠の形状を決定
-  const frameShape = customization.logoFrameShape || 'rounded'
   let corner: number
   let shapeElement: string
 

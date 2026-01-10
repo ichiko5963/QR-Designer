@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getPlanInfo, checkDynamicQRLimit } from '@/lib/plan-limits'
 import { generateShortCode, getShortUrl } from '@/lib/short-url/generator'
 
 export async function POST(request: NextRequest) {
@@ -25,16 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '有効なURLを入力してください' }, { status: 400 })
     }
 
-    // プラン確認
-    const planInfo = await getPlanInfo(supabase, user.id)
-    const limitCheck = checkDynamicQRLimit(planInfo.usage.dynamic_qr, planInfo.features.dynamic_qr_limit)
-
-    if (!limitCheck.allowed) {
-      return NextResponse.json(
-        { error: limitCheck.message },
-        { status: 403 }
-      )
-    }
+    // プランチェックを削除: ログイン済みユーザー全員に無料提供
 
     // ユニークなコードを生成（衝突チェック付き）
     let code: string
@@ -67,7 +57,8 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         code,
         destination_url: destinationUrl,
-        name: name || null,
+        original_url: destinationUrl,
+        title: name || null,
         is_active: true
       })
       .select()
@@ -80,14 +71,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-
-    // 動的QRカウント更新
-    await supabase
-      .from('subscriptions')
-      .update({
-        dynamic_qr_count: planInfo.usage.dynamic_qr + 1
-      })
-      .eq('user_id', user.id)
 
     return NextResponse.json({
       shortUrl: {

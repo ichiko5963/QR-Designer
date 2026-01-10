@@ -1,30 +1,35 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
+// キャッシュを無効化して常に最新データを取得
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return null
 
-  // サブスクリプション情報取得
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('plan_name, monthly_qr_generated, dynamic_qr_count')
+  // ユーザープロフィールから生成数を取得
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('plan_type, total_generated, last_generated_at')
     .eq('user_id', user.id)
     .single()
 
-  // プラン機能取得
-  const planName = subscription?.plan_name || 'free'
-  const { data: planData } = await supabase
-    .from('subscription_plans')
-    .select('features, display_name')
-    .eq('name', planName)
+  // サブスクリプション情報取得（従来のプラン情報用）
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('plan_name, dynamic_qr_count')
+    .eq('user_id', user.id)
     .single()
 
-  const features = planData?.features as Record<string, number | boolean> | null
-  const qrLimit = features?.qr_limit_per_month as number || 4
-  const qrUsed = subscription?.monthly_qr_generated || 0
+  // プラン情報
+  const planName = profile?.plan_type || subscription?.plan_name || 'free'
+
+  // Freeプランは無制限
+  const qrLimit = planName === 'free' ? -1 : 100
+  const qrUsed = profile?.total_generated || 0
 
   // プラン表示名のマッピング
   const planDisplayNames: Record<string, string> = {
@@ -35,20 +40,20 @@ export default async function DashboardPage() {
     agency: 'Agency',
     enterprise: 'Enterprise'
   }
-  
-  const displayPlanName = planDisplayNames[planName] || planData?.display_name || 'Free'
 
-  // 最近のQRコード取得
+  const displayPlanName = planDisplayNames[planName] || 'Free'
+
+  // 最近のQRコード取得（page_titleも含める）
   const { data: recentQRs } = await supabase
     .from('qr_history')
-    .select('id, url, design_name, qr_image_url, created_at')
+    .select('id, url, design_name, qr_image_url, page_title, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(4)
 
   // 統計情報（動的QR機能がある場合）
   const dynamicQrCount = subscription?.dynamic_qr_count || 0
-  const dynamicQrLimit = features?.dynamic_qr_limit as number || 0
+  const dynamicQrLimit = 0 // 動的QRはProプラン以上
 
   return (
     <div className="space-y-8">
@@ -74,9 +79,9 @@ export default async function DashboardPage() {
               <p className="text-xs text-[#1B1723]/50">今月の生成数</p>
               <p className="text-xl font-bold text-[#1B1723]">
                 {qrUsed}
-                {qrLimit !== -1 && (
-                  <span className="text-sm font-normal text-[#1B1723]/40">/{qrLimit}</span>
-                )}
+                <span className="text-sm font-normal text-[#1B1723]/40">
+                  /{qrLimit === -1 ? '∞' : qrLimit}
+                </span>
               </p>
             </div>
           </div>
@@ -169,27 +174,34 @@ export default async function DashboardPage() {
         {recentQRs && recentQRs.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4">
             {recentQRs.map((qr) => (
-              <Link
-                key={qr.id}
-                href={`/dashboard/qr-codes/${qr.id}`}
-                className="group"
-              >
-                <div className="aspect-square bg-[#FAFBFC] rounded-xl p-3 border border-[#171158]/5 group-hover:border-[#E6A24C]/30 group-hover:shadow-lg transition-all">
+              <div key={qr.id} className="group">
+                <div className="aspect-square bg-[#FAFBFC] rounded-xl p-3 border border-[#171158]/5 group-hover:border-[#E6A24C]/30 group-hover:shadow-lg transition-all relative">
                   {qr.qr_image_url && (
                     <img
                       src={qr.qr_image_url}
-                      alt={qr.design_name || 'QR Code'}
+                      alt={qr.page_title || qr.design_name || 'QR Code'}
                       className="w-full h-full object-contain"
                     />
                   )}
+                  {/* ダウンロードボタン（ホバー時表示） */}
+                  <a
+                    href={qr.qr_image_url || '#'}
+                    download={`qr-${qr.id}.png`}
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+                  >
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg">
+                      <svg className="w-5 h-5 text-[#171158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </div>
+                  </a>
                 </div>
                 <div className="mt-2">
                   <p className="text-sm font-semibold text-[#1B1723] truncate">
-                    {qr.design_name || 'QRコード'}
+                    {qr.page_title || qr.design_name || 'QRコード'}
                   </p>
-                  <p className="text-xs text-[#1B1723]/50 truncate">{qr.url}</p>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (

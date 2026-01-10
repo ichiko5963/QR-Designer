@@ -8,6 +8,8 @@ export interface Design {
   cornerStyle: 'square' | 'rounded' | 'dots'
   motifKeyword: string
   preview?: string
+  // デザインに紐づくカスタマイズプリセット
+  customization?: Partial<Customization>
 }
 
 export interface Customization {
@@ -15,7 +17,7 @@ export interface Customization {
   cornerRadius: number
   logoSize: number
   logoBackground: boolean
-  logoFrameShape?: 'square' | 'rounded' | 'circle'
+  logoFrameShape?: 'square' | 'rounded' | 'circle' | 'none'
   logoFrameColor?: string | 'auto'
   errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H'
   dotStyle: 'square' | 'rounded' | 'round' | 'rounder' | 'dots' | 'dot' | 'heart' | 'diamond'

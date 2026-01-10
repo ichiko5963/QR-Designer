@@ -6,7 +6,7 @@ export async function analyzeURL(
   htmlSnippet: string,
   metadata: Metadata
 ): Promise<URLAnalysis> {
-  const model = getGeminiModel('gemini-pro')
+  const model = getGeminiModel('gemini-1.5-flash')
 
   const providedMainColor = sanitizeHex(metadata.mainColor)
   

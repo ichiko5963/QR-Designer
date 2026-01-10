@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Plan {
   name: string
@@ -35,8 +35,25 @@ export default function BillingPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // URLパラメータからメッセージを表示
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const canceled = searchParams.get('canceled')
+
+    if (success === 'true') {
+      setMessage({ type: 'success', text: 'お支払いが完了しました！プランがアップグレードされました。' })
+      // URLからパラメータを削除
+      router.replace('/dashboard/settings/billing', { scroll: false })
+    } else if (canceled === 'true') {
+      setMessage({ type: 'info', text: 'お支払いがキャンセルされました。' })
+      router.replace('/dashboard/settings/billing', { scroll: false })
+    }
+  }, [searchParams, router])
 
   useEffect(() => {
     async function loadData() {
@@ -73,11 +90,13 @@ export default function BillingPage() {
 
   const handleCheckout = async (planName: string, priceId?: string) => {
     if (!priceId) {
-      alert('このプランは現在利用できません')
+      setMessage({ type: 'error', text: 'このプランは現在利用できません' })
       return
     }
 
     setCheckoutLoading(planName)
+    setMessage(null)
+
     try {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -86,32 +105,51 @@ export default function BillingPage() {
       })
 
       const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'チェックアウトセッションの作成に失敗しました')
+      }
+
       if (data.sessionUrl) {
+        // 既存のサブスクリプションがある場合はポータルにリダイレクト
+        if (data.isPortal) {
+          setMessage({ type: 'info', text: 'プラン変更はStripeカスタマーポータルで行えます。リダイレクトします...' })
+        }
         window.location.href = data.sessionUrl
       } else {
-        throw new Error(data.error || 'Failed to create checkout session')
+        throw new Error('セッションURLが取得できませんでした')
       }
     } catch (error) {
       console.error('Checkout error:', error)
-      alert('エラーが発生しました。もう一度お試しください。')
+      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました'
+      setMessage({ type: 'error', text: `エラー: ${errorMessage}` })
     } finally {
       setCheckoutLoading(null)
     }
   }
 
   const handleManageSubscription = async () => {
+    setMessage(null)
     try {
       const response = await fetch('/api/stripe/portal', {
         method: 'POST'
       })
 
       const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'ポータルセッションの作成に失敗しました')
+      }
+
       if (data.url) {
         window.location.href = data.url
+      } else {
+        throw new Error('ポータルURLが取得できませんでした')
       }
     } catch (error) {
       console.error('Portal error:', error)
-      alert('エラーが発生しました')
+      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました'
+      setMessage({ type: 'error', text: `エラー: ${errorMessage}` })
     }
   }
 
@@ -143,6 +181,8 @@ export default function BillingPage() {
         'AIデザイン / カスタマイズ機能は全て利用可能',
         '履歴やWiFi・短縮URLなどの追加機能は非対応'
       ] as const,
+      planName: undefined as string | undefined,
+      popular: false,
       cta: {
         label: 'ログインで拡張',
         action: () => router.push('/api/auth/signin?redirectTo=%2Fdashboard')
@@ -159,7 +199,9 @@ export default function BillingPage() {
         '履歴保存・ダッシュボード管理',
         'WiFi・短縮URL・メール/SMS/電話QR対応'
       ] as const,
-      planName: 'free'
+      planName: 'free',
+      popular: false,
+      cta: undefined as { label: string; action: () => void } | undefined
     },
     {
       key: 'personal',
@@ -173,7 +215,8 @@ export default function BillingPage() {
         'リンク切れ検知・日常タスクの一元管理'
       ] as const,
       planName: 'personal',
-      popular: true
+      popular: true,
+      cta: undefined as { label: string; action: () => void } | undefined
     },
     {
       key: 'pro',
@@ -186,7 +229,9 @@ export default function BillingPage() {
         '動的QR＋スキャン分析・リダイレクト管理',
         'CSV一括生成（月500件）・パスワード/有効期限'
       ] as const,
-      planName: 'pro'
+      planName: 'pro',
+      popular: false,
+      cta: undefined as { label: string; action: () => void } | undefined
     }
   ] as const
 
@@ -197,6 +242,48 @@ export default function BillingPage() {
 
   return (
     <div className="max-w-4xl space-y-8">
+      {/* メッセージ表示 */}
+      {message && (
+        <div
+          className={`p-4 rounded-xl border ${
+            message.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : message.type === 'error'
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : 'bg-blue-50 border-blue-200 text-blue-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {message.type === 'success' && (
+                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {message.type === 'error' && (
+                <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+              {message.type === 'info' && (
+                <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="font-medium">{message.text}</span>
+            </div>
+            <button
+              onClick={() => setMessage(null)}
+              className="text-current opacity-50 hover:opacity-100"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ヘッダー */}
       <div>
         <h1 className="text-2xl font-bold text-[#1B1723]">課金プラン</h1>

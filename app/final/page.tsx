@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { createClient } from '@/lib/supabase/client'
 
 interface FinalData {
   qrCode: string
   design?: unknown
   customization?: unknown
+  originalUrl?: string
+  shortUrl?: { code: string; shortUrl: string } | null
 }
 
 export default function FinalPage() {
@@ -21,11 +24,22 @@ export default function FinalPage() {
     try {
       const stored = localStorage.getItem('qr-final')
       if (stored) {
-        setData(JSON.parse(stored))
+        const parsedData = JSON.parse(stored)
+        setData(parsedData)
+        // 短縮URLがある場合は表示用にセット
+        if (parsedData.shortUrl?.shortUrl) {
+          setShortUrl(parsedData.shortUrl.shortUrl)
+        }
       }
     } catch (err) {
       console.error('Failed to load final QR', err)
     }
+
+    // 認証状態を確認
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsAuthed(!!user)
+    })
   }, [])
 
   const handleDownload = () => {
@@ -145,17 +159,65 @@ export default function FinalPage() {
               <div className="px-6 py-5 border-b border-[#171158]/5 bg-gradient-to-r from-[#171158]/[0.02] to-transparent">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-[#1B1723]">短縮URL設定</h3>
-                    <p className="text-sm text-[#1B1723]/50 mt-1">カスタムURLでトラッキング</p>
+                    <h3 className="text-lg font-bold text-[#1B1723]">リンク情報</h3>
+                    <p className="text-sm text-[#1B1723]/50 mt-1">QRコードのリンク先</p>
                   </div>
-                  <div className="px-3 py-1.5 bg-gradient-to-r from-[#E6A24C]/10 to-[#E6A24C]/20 text-[#E6A24C] text-xs font-bold rounded-full">
-                    Premium
-                  </div>
+                  {shortUrl && (
+                    <div className="px-3 py-1.5 bg-gradient-to-r from-green-100 to-green-50 text-green-600 text-xs font-bold rounded-full">
+                      短縮URL生成済み
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="p-6">
-                {!isAuthed ? (
+                {shortUrl ? (
+                  <div className="space-y-4">
+                    {/* 短縮URL */}
+                    <div>
+                      <label className="block text-xs font-semibold text-[#1B1723]/50 mb-2">
+                        短縮URL
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={shortUrl}
+                          readOnly
+                          className="flex-1 px-4 py-3 text-sm bg-[#171158]/5 border-2 border-[#171158]/10 rounded-xl font-medium text-[#1B1723]"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(shortUrl)
+                            alert('短縮URLをコピーしました')
+                          }}
+                          className="px-4 py-3 text-sm font-semibold text-[#171158] bg-[#171158]/10 rounded-xl hover:bg-[#171158]/20 transition-colors"
+                        >
+                          コピー
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 元のURL */}
+                    {data?.originalUrl && (
+                      <div>
+                        <label className="block text-xs font-semibold text-[#1B1723]/50 mb-2">
+                          元のURL
+                        </label>
+                        <p className="px-4 py-3 text-sm bg-[#171158]/5 border-2 border-[#171158]/10 rounded-xl font-medium text-[#1B1723]/70 truncate">
+                          {data.originalUrl}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="pt-2">
+                      <button
+                        onClick={() => router.push('/dashboard/qr-codes')}
+                        className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#171158] to-[#1B1723] rounded-xl hover:from-[#2A2478] hover:to-[#171158] transition-all shadow-lg shadow-[#171158]/20"
+                      >
+                        ダッシュボードで管理
+                      </button>
+                    </div>
+                  </div>
+                ) : !isAuthed ? (
                   <div className="space-y-5">
                     <div className="text-center">
                       <div className="w-12 h-12 bg-gradient-to-br from-[#171158]/5 to-[#171158]/10 rounded-xl flex items-center justify-center mx-auto mb-3">
@@ -164,27 +226,23 @@ export default function FinalPage() {
                         </svg>
                       </div>
                       <p className="text-sm text-[#1B1723]/60">
-                        Google認証で完全無料のFreeプランが開放され、短縮URL以外にも日常のQR運用ツールがすべて使えます。
+                        Googleログインで短縮URLが自動生成され、履歴として管理できます。
                       </p>
                     </div>
                     <div className="bg-[#171158]/5 rounded-2xl p-4 text-left">
-                      <p className="text-xs font-semibold text-[#1B1723]/50 mb-2">Freeプランでできること</p>
+                      <p className="text-xs font-semibold text-[#1B1723]/50 mb-2">ログインでできること</p>
                       <ul className="space-y-2 text-sm text-[#1B1723]/80">
                         <li className="flex items-start gap-2">
                           <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
-                          無制限のQR生成と履歴保存（ダッシュボード管理）
+                          短縮URLが自動生成されます
                         </li>
                         <li className="flex items-start gap-2">
                           <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
-                          WiFi／短縮URL／vCard／メール／SMSなどのテンプレートが使い放題
+                          QRコードの履歴管理
                         </li>
                         <li className="flex items-start gap-2">
                           <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
-                          ロゴ保存＋AIカラーパレットでブランドカラーを自動反映
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#E6A24C]" />
-                          高精度ダッシュボードで再編集・再ダウンロード・ショートURL連携
+                          再編集・再ダウンロード
                         </li>
                       </ul>
                     </div>
@@ -198,31 +256,29 @@ export default function FinalPage() {
                         <path fill="#fff" d="M5.38 12.42c-.22-.64-.35-1.34-.35-2.05 0-.71.13-1.41.35-2.05V5.5H1.69C.92 7 .5 8.63.5 10.37c0 1.74.42 3.37 1.19 4.87l3.69-2.82z"/>
                         <path fill="#fff" d="M11.48 4.37c1.62 0 3.07.55 4.21 1.63l3.15-3.12C17.46 1.08 15 0 11.48 0 6.63 0 2.95 2.47 1.14 6.13l3.69 2.82c.86-2.56 3.28-4.58 6.65-4.58z"/>
                       </svg>
-                      <span>無料でログイン</span>
+                      <span>Googleでログイン</span>
                     </button>
-                    <p className="text-xs text-[#1B1723]/50 text-center">
-                      認証だけで料金は発生しません。ダッシュボードで短縮URLやロゴ管理がすぐに始められます。
-                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#1B1723]/70 mb-2">
-                        短縮URL
-                      </label>
-                      <input
-                        value={shortUrl}
-                        onChange={(e) => setShortUrl(e.target.value)}
-                        placeholder="https://qr.ly/mybrand"
-                        className="w-full px-4 py-3 text-sm border-2 border-[#171158]/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E6A24C]/30 focus:border-[#E6A24C] transition-all font-medium text-[#1B1723]"
-                      />
+                    {data?.originalUrl && (
+                      <div>
+                        <label className="block text-xs font-semibold text-[#1B1723]/50 mb-2">
+                          リンク先URL
+                        </label>
+                        <p className="px-4 py-3 text-sm bg-[#171158]/5 border-2 border-[#171158]/10 rounded-xl font-medium text-[#1B1723]/70 truncate">
+                          {data.originalUrl}
+                        </p>
+                      </div>
+                    )}
+                    <div className="pt-2">
+                      <button
+                        onClick={() => router.push('/dashboard/qr-codes')}
+                        className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#171158] to-[#1B1723] rounded-xl hover:from-[#2A2478] hover:to-[#171158] transition-all shadow-lg shadow-[#171158]/20"
+                      >
+                        ダッシュボードで管理
+                      </button>
                     </div>
-                    <button
-                      onClick={() => alert(`短縮URLを保存しました: ${shortUrl || '(未入力)'}`)}
-                      className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#171158] to-[#1B1723] rounded-xl hover:from-[#2A2478] hover:to-[#171158] transition-all shadow-lg shadow-[#171158]/20"
-                    >
-                      保存
-                    </button>
                   </div>
                 )}
               </div>

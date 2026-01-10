@@ -9,6 +9,7 @@ import URLInput from './components/URLInput'
 import DesignGrid from './components/DesignGrid'
 import QRPreview from './components/QRPreview'
 import AuthButton from './components/AuthButton'
+import LoginModal from './components/LoginModal'
 import type { URLAnalysis } from '@/types/analysis'
 import type { Design } from '@/types/design'
 import type { Customization } from '@/types/design'
@@ -56,6 +57,7 @@ function getGradientCSS(direction: ColorPreset['gradientDirection'], colors: str
 }
 
 // 白色・薄い色かどうかを判定（QRで読み取りにくい色を除外）
+// HSVベースの相対彩度で判定し、彩度のある明るい色は残す
 function isWhiteColor(hex: string): boolean {
   const color = hex.replace('#', '').toLowerCase()
   if (color.length !== 6) return false
@@ -66,10 +68,20 @@ function isWhiteColor(hex: string): boolean {
   // 明るさを計算
   const brightness = (r * 299 + g * 587 + b * 114) / 1000
 
-  // 明るさが200以上、またはRGB全てが200以上なら薄すぎる色として除外
-  if (brightness > 200) return true
-  if (r >= 200 && g >= 200 && b >= 200) return true
+  // HSV彩度（相対彩度）: 0-1の範囲
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const relativeSaturation = max > 0 ? (max - min) / max : 0
 
+  // 除外条件:
+  // 1. 明るさが250以上かつ彩度が20%未満 → ほぼ白
+  if (brightness > 250 && relativeSaturation < 0.2) return true
+  // 2. 明るさが230以上かつ彩度が10%未満 → 白に近い
+  if (brightness > 230 && relativeSaturation < 0.1) return true
+  // 3. RGB全て245以上 → 白
+  if (r >= 245 && g >= 245 && b >= 245) return true
+
+  // 彩度が十分にある明るい色（明るいオレンジ、イエローなど）は除外しない
   return false
 }
 
@@ -170,10 +182,75 @@ export default function Home() {
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   const [autoPaletteSync, setAutoPaletteSync] = useState(true)
   const [resetKey, setResetKey] = useState(0)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null)
   const router = useRouter()
 
   // ログインチェックはAuthButtonコンポーネントで処理されるため、ここでは削除
   // これにより、ログイン画面（AuthButton）が常に表示される
+
+  // ユーザー状態を取得
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user ? { id: user.id, email: user.email ?? undefined } : null)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setCurrentUser(session?.user ? { id: session.user.id, email: session.user.email ?? undefined } : null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // ログイン後に保留中のQRコードを自動保存
+  useEffect(() => {
+    const savePendingQR = async () => {
+      if (!currentUser) return
+
+      const pendingData = localStorage.getItem('qr-pending-save')
+      if (!pendingData) return
+
+      try {
+        const pending = JSON.parse(pendingData)
+        localStorage.removeItem('qr-pending-save') // 先に削除して重複保存を防ぐ
+
+        // 保存APIを呼び出す
+        const response = await fetch('/api/generate-qr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: pending.url,
+            design: pending.design,
+            customization: pending.customization,
+            logo: pending.logo,
+            logoUrl: pending.logoUrl,
+            saveToHistory: true
+          })
+        })
+
+        const result = await response.json()
+        if (result.success && result.saved) {
+          // 保存成功 - finalページへ遷移
+          localStorage.setItem(
+            'qr-final',
+            JSON.stringify({
+              qrCode: result.qrCode,
+              design: pending.design,
+              customization: pending.customization,
+              originalUrl: pending.url,
+              shortUrl: result.shortUrl
+            })
+          )
+          router.push('/final')
+        }
+      } catch (err) {
+        console.error('Failed to save pending QR:', err)
+      }
+    }
+
+    savePendingQR()
+  }, [currentUser, router])
 
   // 状態を完全にリセット
   const handleReset = () => {
@@ -195,6 +272,7 @@ export default function Home() {
   }
 
   // 色プリセットを生成（グラデーション優先 + 単色）
+  // ロゴ色を最優先で使用し、不足分のみサイト色で補完
   const generateColorPresets = (logoColors: string[], siteColors: string[]): ColorPreset[] => {
     const presets: ColorPreset[] = []
 
@@ -202,23 +280,53 @@ export default function Home() {
     const filteredLogoColors = logoColors.filter(c => !isWhiteColor(c))
     const filteredSiteColors = siteColors.filter(c => !isWhiteColor(c))
 
-    // 使用可能な色を収集（グラデーション用）
-    const combined = [...filteredLogoColors, ...filteredSiteColors].filter(
-      (c, i, arr) => arr.findIndex(x => x.toLowerCase() === c.toLowerCase()) === i
-    )
+    // グラデーション用の色を決定（ロゴ色を最優先）
+    // ロゴ色が1色以上あれば、それを中心にグラデーションを作成
+    // 不足分はサイト色またはロゴ色のシフトで補完
+    let color1: string
+    let color2: string
+    let color3: string
 
-    const gradientSource =
-      filteredLogoColors.length >= 2
-        ? filteredLogoColors
-        : combined
-
-    if (gradientSource.length < 2) {
-      gradientSource.push('#171158', '#E6A24C', '#1B1723')
+    if (filteredLogoColors.length >= 3) {
+      // ロゴから3色以上取れた場合はそのまま使用
+      color1 = filteredLogoColors[0]
+      color2 = filteredLogoColors[1]
+      color3 = filteredLogoColors[2]
+    } else if (filteredLogoColors.length === 2) {
+      // ロゴから2色取れた場合は、3色目をサイト色またはシフトで補完
+      color1 = filteredLogoColors[0]
+      color2 = filteredLogoColors[1]
+      // サイト色でロゴ色と重複しない色があれば使用
+      const unusedSiteColor = filteredSiteColors.find(
+        sc => !filteredLogoColors.some(lc => lc.toLowerCase() === sc.toLowerCase())
+      )
+      color3 = unusedSiteColor || shiftHexColor(color2, 20)
+    } else if (filteredLogoColors.length === 1) {
+      // ロゴから1色だけ取れた場合は、その色を中心にグラデーションを作成
+      color1 = filteredLogoColors[0]
+      // サイト色でロゴ色と重複しない色を取得
+      const unusedSiteColors = filteredSiteColors.filter(
+        sc => !filteredLogoColors.some(lc => lc.toLowerCase() === sc.toLowerCase())
+      )
+      color2 = unusedSiteColors[0] || shiftHexColor(color1, -30)
+      color3 = unusedSiteColors[1] || shiftHexColor(color1, 30)
+    } else {
+      // ロゴ色が取れなかった場合はサイト色を使用
+      if (filteredSiteColors.length >= 3) {
+        color1 = filteredSiteColors[0]
+        color2 = filteredSiteColors[1]
+        color3 = filteredSiteColors[2]
+      } else if (filteredSiteColors.length >= 1) {
+        color1 = filteredSiteColors[0]
+        color2 = filteredSiteColors[1] || shiftHexColor(color1, -30)
+        color3 = filteredSiteColors[2] || shiftHexColor(color1, 30)
+      } else {
+        // フォールバック
+        color1 = '#171158'
+        color2 = '#1B1723'
+        color3 = '#E6A24C'
+      }
     }
-
-    const color1 = gradientSource[0] || '#171158'
-    const color2 = gradientSource[1] || shiftHexColor(color1, -20)
-    const color3 = gradientSource[2] || shiftHexColor(color2, 20)
 
     // グラデーションバリエーション（最初に配置）
     const gradientVariations: Array<{
@@ -455,12 +563,16 @@ export default function Home() {
         if (!paletteApplied) {
           setQrCode(data.qrCode)
         }
+
+        // APIレスポンスを返す（履歴保存時のrequiresAuthやshortUrlを取得するため）
+        return data
       } else {
         throw new Error(data.error || 'QRコード生成に失敗しました')
       }
     } catch (error) {
       console.error('Error generating QR code:', error)
       alert('QRコード生成に失敗しました')
+      return null
     } finally {
       setIsLoading(false)
     }
@@ -468,17 +580,30 @@ export default function Home() {
 
   const handleSelectDesign = async (design: Design) => {
     setSelectedDesign(design)
-    const siteColors = analysis?.colors || []
+
+    // autoPaletteSyncをオフにして、デザインの設定を優先
+    setAutoPaletteSync(false)
+    setSelectedPresetId(null)
+
+    // デザインに紐づくカスタマイズプリセットがあれば適用
+    const designPreset = design.customization || {}
+
     const newCustomization: Customization = {
       ...customization,
-      patternColor1: design.fgColor || siteColors[0] || customization.patternColor1,
-      patternColor2: (design.bgColor !== '#ffffff' && design.bgColor !== '#FFFFFF')
-        ? design.bgColor
-        : siteColors[1] || customization.patternColor2,
-      patternColor3: siteColors[2] || customization.patternColor3
+      // デザインプリセットの設定を適用
+      patternStyle: designPreset.patternStyle || customization.patternStyle,
+      colorStyle: designPreset.colorStyle || customization.colorStyle,
+      gradientDirection: designPreset.gradientDirection || customization.gradientDirection,
+      logoFrameShape: designPreset.logoFrameShape || customization.logoFrameShape,
+      // カラー設定
+      patternColor1: designPreset.patternColor1 || design.fgColor || customization.patternColor1,
+      patternColor2: designPreset.patternColor2 || customization.patternColor2,
+      patternColor3: designPreset.patternColor3 || customization.patternColor3,
     }
+
     setCustomization(newCustomization)
-    await generateQRCode(design, false, null, newCustomization)
+    // applyLogoColorsをfalseにして色の自動適用を防ぐ
+    await generateQRCode(design, false, null, newCustomization, false)
   }
 
   const handlePresetSelect = async (preset: ColorPreset) => {
@@ -511,20 +636,52 @@ export default function Home() {
     reader.readAsDataURL(file)
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!qrCode) return
+
+    // 未ログインの場合はペンディングデータを保存してログインモーダルを表示
+    if (!currentUser) {
+      // ログイン後に自動保存するためのデータを保存
+      localStorage.setItem('qr-pending-save', JSON.stringify({
+        url,
+        design: selectedDesign,
+        customization,
+        logo: logoMode === 'upload' ? uploadedLogo : null,
+        logoUrl: logoMode === 'auto' ? logoUrl : null
+      }))
+      setShowLoginModal(true)
+      return
+    }
+
     try {
+      // ログイン済みの場合は履歴保存を実行
+      let finalQrCode = qrCode
+      let shortUrlData = null
+      if (selectedDesign) {
+        const result = await generateQRCode(selectedDesign, true, logoMode === 'upload' ? uploadedLogo : null, customization, false)
+        if (result?.requiresAuth) {
+          setShowLoginModal(true)
+          return
+        }
+        // APIから返されたQRコードと短縮URLを使用
+        finalQrCode = result?.qrCode || qrCode
+        shortUrlData = result?.shortUrl || null
+      }
+
       localStorage.setItem(
         'qr-final',
         JSON.stringify({
-          qrCode,
+          qrCode: finalQrCode,
           design: selectedDesign,
-          customization
+          customization,
+          originalUrl: url,
+          shortUrl: shortUrlData
         })
       )
       router.push('/final')
     } catch (err) {
-      console.error('Failed to persist QR for final page', err)
+      console.error('Failed to save QR code', err)
+      alert('QRコードの保存に失敗しました')
     }
   }
 
@@ -1154,6 +1311,7 @@ export default function Home() {
                       designs={designs}
                       selectedDesign={selectedDesign}
                       onSelectDesign={handleSelectDesign}
+                      paletteColors={extractedLogoColors}
                     />
                   </div>
                 </div>
@@ -1208,7 +1366,7 @@ export default function Home() {
                   {/* Logo Frame Shape */}
                   <div>
                     <span className="text-xs text-[#1B1723]/50 font-semibold mb-3 block uppercase tracking-wider">ロゴ枠の形状</span>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                       {([
                         { key: 'rounded', label: '角丸', icon: (
                           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -1223,6 +1381,11 @@ export default function Home() {
                         { key: 'square', label: '四角', icon: (
                           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                             <rect x="4" y="4" width="16" height="16" />
+                          </svg>
+                        )},
+                        { key: 'none', label: 'なし', icon: (
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path d="M18 6L6 18M6 6l12 12" />
                           </svg>
                         )}
                       ] as const).map((shape) => (
@@ -1251,108 +1414,135 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Logo Frame Color */}
-                  <div>
-                    <span className="text-xs text-[#1B1723]/50 font-semibold mb-3 block uppercase tracking-wider">ロゴ枠の色</span>
-                    <div className="flex flex-wrap gap-2">
-                      {/* 自動（抽出色） */}
-                      <button
-                        onClick={async () => {
-                          const newCustomization: Customization = {
-                            ...customization,
-                            logoFrameColor: 'auto'
-                          }
-                          setCustomization(newCustomization)
-                          if (selectedDesign) {
-                            await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
-                          }
-                        }}
-                        className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
-                          !customization.logoFrameColor || customization.logoFrameColor === 'auto'
-                            ? 'bg-[#171158] text-white border-[#171158]'
-                            : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
-                        }`}
-                      >
-                        {extractedLogoColors.length > 0 ? (
-                          <div className="flex -space-x-1">
-                            {extractedLogoColors.slice(0, 3).map((c, i) => (
-                              <div key={i} className="w-4 h-4 rounded-full ring-1 ring-white" style={{ backgroundColor: c }} />
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#171158] to-[#E6A24C]" />
-                        )}
-                        <span>自動</span>
-                      </button>
+                  {/* Logo Frame Color - 枠なしの場合は非表示 */}
+                  {customization.logoFrameShape !== 'none' && (
+                    <div>
+                      <span className="text-xs text-[#1B1723]/50 font-semibold mb-3 block uppercase tracking-wider">ロゴ枠の色</span>
+                      <div className="flex flex-wrap gap-2">
+                        {/* 自動（抽出色） */}
+                        <button
+                          onClick={async () => {
+                            const newCustomization: Customization = {
+                              ...customization,
+                              logoFrameColor: 'auto'
+                            }
+                            setCustomization(newCustomization)
+                            if (selectedDesign) {
+                              await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
+                            }
+                          }}
+                          className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
+                            !customization.logoFrameColor || customization.logoFrameColor === 'auto'
+                              ? 'bg-[#171158] text-white border-[#171158]'
+                              : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
+                          }`}
+                        >
+                          {extractedLogoColors.length > 0 ? (
+                            <div className="flex -space-x-1">
+                              {extractedLogoColors.slice(0, 3).map((c, i) => (
+                                <div key={i} className="w-4 h-4 rounded-full ring-1 ring-white" style={{ backgroundColor: c }} />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#171158] to-[#E6A24C]" />
+                          )}
+                          <span>自動</span>
+                        </button>
 
-                      {/* ブラック */}
-                      <button
-                        onClick={async () => {
-                          const newCustomization: Customization = {
-                            ...customization,
-                            logoFrameColor: '#000000'
-                          }
-                          setCustomization(newCustomization)
-                          if (selectedDesign) {
-                            await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
-                          }
-                        }}
-                        className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
-                          customization.logoFrameColor === '#000000'
-                            ? 'bg-[#171158] text-white border-[#171158]'
-                            : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
-                        }`}
-                      >
-                        <div className="w-4 h-4 rounded-full bg-black" />
-                        <span>ブラック</span>
-                      </button>
+                        {/* ロゴ抽出色を個別に選択可能 */}
+                        {extractedLogoColors.map((color, i) => (
+                          <button
+                            key={`logo-color-${i}`}
+                            onClick={async () => {
+                              const newCustomization: Customization = {
+                                ...customization,
+                                logoFrameColor: color
+                              }
+                              setCustomization(newCustomization)
+                              if (selectedDesign) {
+                                await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
+                              }
+                            }}
+                            className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
+                              customization.logoFrameColor === color
+                                ? 'bg-[#171158] text-white border-[#171158]'
+                                : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
+                            }`}
+                          >
+                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
+                            <span>ロゴ{i + 1}</span>
+                          </button>
+                        ))}
 
-                      {/* デザイン連動 */}
-                      <button
-                        onClick={async () => {
-                          const syncColor = customization.patternColor1 || '#171158'
-                          const newCustomization: Customization = {
-                            ...customization,
-                            logoFrameColor: syncColor
-                          }
-                          setCustomization(newCustomization)
-                          if (selectedDesign) {
-                            await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
-                          }
-                        }}
-                        className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
-                          customization.logoFrameColor && customization.logoFrameColor !== 'auto' && customization.logoFrameColor !== '#000000' && customization.logoFrameColor === customization.patternColor1
-                            ? 'bg-[#171158] text-white border-[#171158]'
-                            : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
-                        }`}
-                      >
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: customization.patternColor1 || '#171158' }} />
-                        <span>QR連動</span>
-                      </button>
+                        {/* ブラック */}
+                        <button
+                          onClick={async () => {
+                            const newCustomization: Customization = {
+                              ...customization,
+                              logoFrameColor: '#000000'
+                            }
+                            setCustomization(newCustomization)
+                            if (selectedDesign) {
+                              await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
+                            }
+                          }}
+                          className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
+                            customization.logoFrameColor === '#000000'
+                              ? 'bg-[#171158] text-white border-[#171158]'
+                              : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
+                          }`}
+                        >
+                          <div className="w-4 h-4 rounded-full bg-black" />
+                          <span>ブラック</span>
+                        </button>
 
-                      {/* ホワイト */}
-                      <button
-                        onClick={async () => {
-                          const newCustomization: Customization = {
-                            ...customization,
-                            logoFrameColor: '#ffffff'
-                          }
-                          setCustomization(newCustomization)
-                          if (selectedDesign) {
-                            await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
-                          }
-                        }}
-                        className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
-                          customization.logoFrameColor === '#ffffff'
-                            ? 'bg-[#171158] text-white border-[#171158]'
-                            : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
-                        }`}
-                      >
-                        <div className="w-4 h-4 rounded-full bg-white border border-gray-300" />
-                        <span>ホワイト</span>
-                      </button>
+                        {/* QR連動 */}
+                        <button
+                          onClick={async () => {
+                            const syncColor = customization.patternColor1 || '#171158'
+                            const newCustomization: Customization = {
+                              ...customization,
+                              logoFrameColor: syncColor
+                            }
+                            setCustomization(newCustomization)
+                            if (selectedDesign) {
+                              await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
+                            }
+                          }}
+                          className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
+                            customization.logoFrameColor && customization.logoFrameColor !== 'auto' && customization.logoFrameColor !== '#000000' && customization.logoFrameColor !== '#ffffff' && !extractedLogoColors.includes(customization.logoFrameColor) && customization.logoFrameColor === customization.patternColor1
+                              ? 'bg-[#171158] text-white border-[#171158]'
+                              : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
+                          }`}
+                        >
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: customization.patternColor1 || '#171158' }} />
+                          <span>QR連動</span>
+                        </button>
+
+                        {/* ホワイト */}
+                        <button
+                          onClick={async () => {
+                            const newCustomization: Customization = {
+                              ...customization,
+                              logoFrameColor: '#ffffff'
+                            }
+                            setCustomization(newCustomization)
+                            if (selectedDesign) {
+                              await generateQRCode(selectedDesign, false, logoMode === 'upload' ? uploadedLogo : null, newCustomization)
+                            }
+                          }}
+                          className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all flex items-center gap-2 ${
+                            customization.logoFrameColor === '#ffffff'
+                              ? 'bg-[#171158] text-white border-[#171158]'
+                              : 'bg-white text-[#1B1723]/60 border-[#171158]/10 hover:border-[#171158]/30'
+                          }`}
+                        >
+                          <div className="w-4 h-4 rounded-full bg-white border border-gray-300" />
+                          <span>ホワイト</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Extracted Logo Colors */}
                   {extractedLogoColors.length > 0 && (
@@ -1399,6 +1589,14 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="QRコードを保存するにはGoogleアカウントでログインしてください。ログイン後、履歴として管理できます。"
+        redirectPath="/dashboard/generate"
+      />
     </div>
   )
 }

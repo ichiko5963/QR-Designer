@@ -15,15 +15,32 @@ function getSupabase() {
   )
 }
 
+// Price IDからプラン名を取得するヘルパー関数
+async function getPlanNameByPriceId(supabase: ReturnType<typeof getSupabase>, priceId: string): Promise<string> {
+  const { data: plan } = await supabase
+    .from('subscription_plans')
+    .select('name')
+    .or(`stripe_price_id_monthly.eq.${priceId},stripe_price_id_yearly.eq.${priceId}`)
+    .single()
+
+  return plan?.name || 'free'
+}
+
 export async function POST(request: NextRequest) {
   const stripe = getStripe()
   const supabase = getSupabase()
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET is not set')
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+  }
 
   const body = await request.text()
   const signature = request.headers.get('stripe-signature')
 
   if (!signature) {
+    console.error('No stripe-signature header')
     return NextResponse.json({ error: 'No signature' }, { status: 400 })
   }
 
@@ -35,6 +52,8 @@ export async function POST(request: NextRequest) {
     console.error('Webhook signature verification failed:', err)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
+
+  console.log(`Processing webhook event: ${event.type}`)
 
   try {
     switch (event.type) {
@@ -49,38 +68,50 @@ export async function POST(request: NextRequest) {
           break
         }
 
+        if (!subscriptionId) {
+          console.error('No subscription ID in checkout session')
+          break
+        }
+
         // サブスクリプション詳細取得
         const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const subscriptionData = subscriptionResponse as any
-        const priceId = subscriptionData.items.data[0].price.id
+        const priceId = subscriptionData.items?.data?.[0]?.price?.id
+
+        if (!priceId) {
+          console.error('No price ID found in subscription')
+          break
+        }
 
         // プラン名をPrice IDから特定
-        const { data: plan } = await supabase
-          .from('subscription_plans')
-          .select('name')
-          .or(`stripe_price_id_monthly.eq.${priceId},stripe_price_id_yearly.eq.${priceId}`)
-          .single()
+        const planName = await getPlanNameByPriceId(supabase, priceId)
 
-        // 期間情報を取得（SDKバージョンによってプロパティ名が異なる可能性があるため）
+        // 期間情報を取得
         const periodStart = subscriptionData.current_period_start || subscriptionData.billing_cycle_anchor
         const periodEnd = subscriptionData.current_period_end || null
 
         // DB更新
-        await supabase.from('subscriptions').upsert({
+        const { error: upsertError } = await supabase.from('subscriptions').upsert({
           user_id: userId,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
           stripe_price_id: priceId,
-          plan_name: plan?.name || 'starter',
+          plan_name: planName,
           status: 'active',
+          cancel_at_period_end: false,
           current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : new Date().toISOString(),
           current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null
         }, {
           onConflict: 'user_id'
         })
 
-        console.log(`Subscription created for user ${userId}: ${plan?.name || 'starter'}`)
+        if (upsertError) {
+          console.error('Failed to upsert subscription:', upsertError)
+          throw upsertError
+        }
+
+        console.log(`Subscription created/updated for user ${userId}: ${planName}`)
         break
       }
 
@@ -90,30 +121,71 @@ export async function POST(request: NextRequest) {
         const periodStart = subscription.current_period_start
         const periodEnd = subscription.current_period_end
 
-        await supabase
+        // Price IDを取得（プランアップグレード/ダウングレード対応）
+        const priceId = subscription.items?.data?.[0]?.price?.id
+
+        // プラン名を取得
+        let planName: string | undefined
+        if (priceId) {
+          planName = await getPlanNameByPriceId(supabase, priceId)
+        }
+
+        // 更新データを構築
+        const updateData: Record<string, unknown> = {
+          status: subscription.status,
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          updated_at: new Date().toISOString()
+        }
+
+        // 期間情報を追加
+        if (periodStart) {
+          updateData.current_period_start = new Date(periodStart * 1000).toISOString()
+        }
+        if (periodEnd) {
+          updateData.current_period_end = new Date(periodEnd * 1000).toISOString()
+        }
+
+        // プランが変更された場合は更新
+        if (priceId) {
+          updateData.stripe_price_id = priceId
+        }
+        if (planName) {
+          updateData.plan_name = planName
+        }
+
+        const { error: updateError } = await supabase
           .from('subscriptions')
-          .update({
-            status: subscription.status,
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : undefined,
-            current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : undefined
-          })
+          .update(updateData)
           .eq('stripe_subscription_id', subscription.id)
 
-        console.log(`Subscription updated: ${subscription.id}`)
+        if (updateError) {
+          console.error('Failed to update subscription:', updateError)
+          throw updateError
+        }
+
+        console.log(`Subscription updated: ${subscription.id}, plan: ${planName}, status: ${subscription.status}`)
         break
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
 
-        await supabase
+        const { error: deleteError } = await supabase
           .from('subscriptions')
           .update({
             status: 'canceled',
-            plan_name: 'free'
+            plan_name: 'free',
+            stripe_subscription_id: null,
+            stripe_price_id: null,
+            cancel_at_period_end: false,
+            updated_at: new Date().toISOString()
           })
           .eq('stripe_subscription_id', subscription.id)
+
+        if (deleteError) {
+          console.error('Failed to cancel subscription:', deleteError)
+          throw deleteError
+        }
 
         console.log(`Subscription canceled: ${subscription.id}`)
         break
@@ -125,18 +197,51 @@ export async function POST(request: NextRequest) {
         const subscriptionId = invoice.subscription as string
 
         if (subscriptionId) {
-          await supabase
+          const { error: failError } = await supabase
             .from('subscriptions')
-            .update({ status: 'past_due' })
+            .update({
+              status: 'past_due',
+              updated_at: new Date().toISOString()
+            })
             .eq('stripe_subscription_id', subscriptionId)
 
+          if (failError) {
+            console.error('Failed to update subscription status:', failError)
+            throw failError
+          }
+
           console.log(`Payment failed for subscription: ${subscriptionId}`)
+        }
+        break
+      }
+
+      case 'invoice.payment_succeeded': {
+        // 支払い成功時にステータスをactiveに戻す（past_dueからの復帰）
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const invoice = event.data.object as any
+        const subscriptionId = invoice.subscription as string
+
+        if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
+          const { error: successError } = await supabase
+            .from('subscriptions')
+            .update({
+              status: 'active',
+              updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', subscriptionId)
+
+          if (successError) {
+            console.error('Failed to update subscription status:', successError)
+          } else {
+            console.log(`Payment succeeded, subscription active: ${subscriptionId}`)
+          }
         }
         break
       }
     }
   } catch (error) {
     console.error('Webhook handler error:', error)
+    // Stripeに500を返すと再試行される
     return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 })
   }
 

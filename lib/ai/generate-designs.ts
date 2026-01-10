@@ -14,14 +14,14 @@ interface AIDesignResponse {
 }
 
 export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> {
-  const model = getGeminiModel('gemini-pro')
+  const model = getGeminiModel('gemini-1.5-flash')
   const primaryColor = analysis.mainColor || analysis.designSuggestion.primaryColor
   const palette = buildPalette(primaryColor, analysis.colors)
   const motifKeyword = deriveMotifKeyword(analysis)
   
   const prompt = `
 あなたはQRコードデザイナーです。
-以下の情報を元に、3種類のユニークで「印象の違いがはっきりした」QRコードデザインを提案してください。
+以下の情報を元に、4種類のユニークで「印象の違いがはっきりした」QRコードデザインを提案してください。
 
 サイト情報:
 - カテゴリー: ${analysis.category}
@@ -31,7 +31,7 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
 - カラー候補: ${palette.join(', ')}
 - モチーフ: ${analysis.motif}
 
-各デザインには以下を含めてください（3案すべてで色・スタイル・角・モチーフ表現が被らないこと）:
+各デザインには以下を含めてください（4案すべてで色・スタイル・角・モチーフ表現が被らないこと）:
 1. 名前（キャッチーな日本語、10文字以内）
 2. 説明（どんな印象を与えるか、20文字以内）
 3. 前景色（HEXコード）
@@ -50,7 +50,7 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
   "cornerStyle": "dots"
 }
 
-JSON配列で出力してください。3つのデザインを含めてください。
+JSON配列で出力してください。4つのデザインを含めてください。
 `
 
   try {
@@ -67,7 +67,7 @@ JSON配列で出力してください。3つのデザインを含めてくださ
       normalizeDesign(design, `design-${index + 1}`, analysis, primaryColor, motifKeyword)
     )
 
-    return ensureThreeDesigns(normalized, primaryColor, palette, motifKeyword, analysis)
+    return ensureFourDesigns(normalized, primaryColor, palette, motifKeyword, analysis)
   } catch (error) {
     console.error('Error generating designs:', error)
     // フォールバック: デフォルトデザインを返す
@@ -104,7 +104,7 @@ function normalizeDesign(
   }
 }
 
-function ensureThreeDesigns(
+function ensureFourDesigns(
   designs: Design[],
   primaryColor: string | undefined,
   palette: string[],
@@ -125,63 +125,101 @@ function ensureThreeDesigns(
 
   const fillers = buildFallbackDesigns(primaryColor, palette, motif, analysis)
   for (const filler of fillers) {
-    if (unique.length >= 3) break
+    if (unique.length >= 4) break
     pushIfNew(filler)
   }
 
-  return unique.slice(0, 3)
+  return unique.slice(0, 4)
 }
 
 function buildFallbackDesigns(
   primaryColor: string | undefined,
   palette: string[],
   motif: string,
-  analysis: URLAnalysis
+  _analysis: URLAnalysis
 ): Design[] {
   const base = sanitizeHex(primaryColor, palette[0] || '#0B2F4A')
-  const accent = sanitizeHex(palette[1], adjustColor(base, -28))
-  const vivid = sanitizeHex(palette[2], adjustColor(base, 24))
-  const softBg = '#F7F9FB'
+  const color2 = sanitizeHex(palette[1], adjustColor(base, -28))
+  const color3 = sanitizeHex(palette[2], adjustColor(base, 24))
 
   const candidates: Design[] = [
     {
-      id: 'design-a',
-      name: 'ハイコントラスト',
-      description: 'コントラスト重視で視認性UP',
-      fgColor: accent,
-      bgColor: '#FFFFFF',
-      style: 'bold',
-      cornerStyle: 'rounded',
-      motifKeyword: motif
-    },
-    {
-      id: 'design-b',
-      name: 'バブル',
-      description: '丸ドットで柔らかい印象',
-      fgColor: vivid,
+      id: 'design-1',
+      name: 'グラデーション斜め',
+      description: '斜めグラデーションで動きのある印象',
+      fgColor: base,
       bgColor: '#FFFFFF',
       style: 'colorful',
       cornerStyle: 'dots',
-      motifKeyword: motif
+      motifKeyword: motif,
+      customization: {
+        patternStyle: 'dot',
+        colorStyle: 'gradient',
+        gradientDirection: 'to-br',
+        logoFrameShape: 'circle',
+        patternColor1: base,
+        patternColor2: color2,
+        patternColor3: color3
+      }
     },
     {
-      id: 'design-c',
-      name: 'ベーストーン',
-      description: 'ブランド色を素直に活用',
+      id: 'design-2',
+      name: 'グラデーション放射',
+      description: '中心から広がる放射グラデーション',
       fgColor: base,
-      bgColor: softBg,
+      bgColor: '#FFFFFF',
+      style: 'elegant',
+      cornerStyle: 'rounded',
+      motifKeyword: motif,
+      customization: {
+        patternStyle: 'square',
+        colorStyle: 'gradient',
+        gradientDirection: 'radial',
+        logoFrameShape: 'rounded',
+        patternColor1: base,
+        patternColor2: color2,
+        patternColor3: color3
+      }
+    },
+    {
+      id: 'design-3',
+      name: 'シンプル黒',
+      description: '定番の黒で高い視認性',
+      fgColor: '#000000',
+      bgColor: '#FFFFFF',
       style: 'minimal',
       cornerStyle: 'square',
-      motifKeyword: motif
+      motifKeyword: motif,
+      customization: {
+        patternStyle: 'square',
+        colorStyle: 'gradient',
+        logoFrameShape: 'square',
+        patternColor1: '#000000',
+        patternColor2: '#000000',
+        patternColor3: '#000000'
+      }
+    },
+    {
+      id: 'design-4',
+      name: 'ブランドカラー',
+      description: 'サイトの色を素直に反映',
+      fgColor: base,
+      bgColor: '#FFFFFF',
+      style: 'bold',
+      cornerStyle: 'rounded',
+      motifKeyword: motif,
+      customization: {
+        patternStyle: 'round',
+        colorStyle: 'gradient',
+        logoFrameShape: 'rounded',
+        patternColor1: base,
+        patternColor2: base,
+        patternColor3: base
+      }
     }
   ]
 
-  // 解析結果テーマを名前に少し反映
-  return candidates.map((design, idx) => ({
-    ...design,
-    id: design.id || `design-${idx + 1}`,
-    name: `${design.name}`
-  }))
+  return candidates
 }
 
 function sanitizeHex(color?: string, fallback = '#000000') {
