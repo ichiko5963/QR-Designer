@@ -122,8 +122,9 @@ export default async function DashboardPage() {
             </div>
             <div>
               <p className="text-xs text-[#1B1723]/50">現在のプラン</p>
-              <p className="text-xl font-bold text-[#1B1723]">
-                {displayPlanName}
+              <p className="text-xl font-bold text-[#1B1723] flex items-center gap-2">
+                {planName === 'free' && <span aria-hidden="true" className="text-2xl leading-none">🆓</span>}
+                <span>{displayPlanName}</span>
               </p>
             </div>
           </div>
@@ -149,7 +150,10 @@ export default async function DashboardPage() {
               </svg>
             </div>
             <div>
-              <p className="text-xs text-white/60">AIで生成</p>
+              <p className="text-xs text-white/60 flex items-center gap-1">
+                <span aria-hidden="true">🤖</span>
+                <span>AIで生成</span>
+              </p>
               <p className="text-lg font-bold text-white">QRコード作成</p>
             </div>
           </div>

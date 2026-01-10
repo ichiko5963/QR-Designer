@@ -85,8 +85,9 @@ export default function DashboardHeader({ user, plan }: DashboardHeaderProps) {
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl shadow-[#171158]/10 border border-[#171158]/5 py-2 z-50">
               <div className="px-4 py-2 border-b border-[#171158]/5">
                 <p className="text-xs text-[#1B1723]/50">現在のプラン</p>
-                <p className="text-sm font-semibold text-[#1B1723]">
-                  {plan.charAt(0).toUpperCase() + plan.slice(1)}
+                <p className="text-sm font-semibold text-[#1B1723] flex items-center gap-2">
+                  {plan === 'free' && <span aria-hidden="true">🆓</span>}
+                  <span>{plan.charAt(0).toUpperCase() + plan.slice(1)}</span>
                 </p>
               </div>
 
