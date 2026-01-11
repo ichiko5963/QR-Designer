@@ -68,8 +68,9 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { url, design, customization, logo, logoUrl, saveToHistory } = GenerateQRSchema.parse(body)
-    const siteOrigin = new URL(url).origin
-    
+    const urlObj = new URL(url)
+    const siteOrigin = urlObj.origin
+
     // ロゴをBufferに変換
     let logoBuffer: Buffer | undefined
     if (logo) {
@@ -82,10 +83,22 @@ export async function POST(req: Request) {
       const snsProfileCandidates = await getSNSProfileImageCandidates(url)
       candidates.push(...snsProfileCandidates)
 
+      // HTMLからロゴ候補を取得（apple-touch-icon, shortcut icon, icon など）
+      const htmlLogoCandidates = await getLogoFromHTML(url)
+      candidates.push(...htmlLogoCandidates)
+
       // 明示ロゴがない場合でも /favicon.ico を試す
-      candidates.push(new URL('/favicon.ico', url).toString())
-      // 最終手段として Google の favicon 取得API
+      candidates.push(new URL('/favicon.ico', siteOrigin).toString())
+      candidates.push(new URL('/favicon.png', siteOrigin).toString())
+      candidates.push(new URL('/apple-touch-icon.png', siteOrigin).toString())
+      candidates.push(new URL('/apple-touch-icon-precomposed.png', siteOrigin).toString())
+
+      // 外部ファビコン取得API（複数のバックアップ）
+      candidates.push(`https://www.google.com/s2/favicons?sz=256&domain_url=${encodeURIComponent(siteOrigin)}`)
       candidates.push(`https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(siteOrigin)}`)
+      candidates.push(`https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`)
+      candidates.push(`https://favicone.com/${urlObj.hostname}?s=256`)
+
       logoBuffer = await fetchFirstAvailableLogo(candidates)
     }
     
@@ -419,5 +432,92 @@ async function fetchPageTitle(url: string): Promise<string | null> {
   } catch (e) {
     console.warn('Failed to fetch page title:', e)
     return null
+  }
+}
+
+// HTMLからファビコン/ロゴ候補を取得
+async function getLogoFromHTML(url: string): Promise<string[]> {
+  const candidates: string[] = []
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(5000)
+    })
+    if (!res.ok) return candidates
+
+    const html = await res.text()
+    const baseUrl = new URL(url).origin
+
+    // apple-touch-icon（通常最も高品質）
+    const appleTouchIcon = html.match(/<link[^>]*rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i) ||
+                           html.match(/<link[^>]*href=["']([^"']+)["'][^>]*rel=["']apple-touch-icon["']/i)
+    if (appleTouchIcon) {
+      candidates.push(new URL(appleTouchIcon[1], baseUrl).toString())
+    }
+
+    // apple-touch-icon-precomposed
+    const appleTouchIconPrecomposed = html.match(/<link[^>]*rel=["']apple-touch-icon-precomposed["'][^>]*href=["']([^"']+)["']/i) ||
+                                       html.match(/<link[^>]*href=["']([^"']+)["'][^>]*rel=["']apple-touch-icon-precomposed["']/i)
+    if (appleTouchIconPrecomposed) {
+      candidates.push(new URL(appleTouchIconPrecomposed[1], baseUrl).toString())
+    }
+
+    // shortcut icon
+    const shortcutIcon = html.match(/<link[^>]*rel=["']shortcut icon["'][^>]*href=["']([^"']+)["']/i) ||
+                         html.match(/<link[^>]*href=["']([^"']+)["'][^>]*rel=["']shortcut icon["']/i)
+    if (shortcutIcon) {
+      candidates.push(new URL(shortcutIcon[1], baseUrl).toString())
+    }
+
+    // icon（通常のfavicon link）
+    const iconLink = html.match(/<link[^>]*rel=["']icon["'][^>]*href=["']([^"']+)["']/i) ||
+                     html.match(/<link[^>]*href=["']([^"']+)["'][^>]*rel=["']icon["']/i)
+    if (iconLink) {
+      candidates.push(new URL(iconLink[1], baseUrl).toString())
+    }
+
+    // manifest.json からアイコンを取得
+    const manifestLink = html.match(/<link[^>]*rel=["']manifest["'][^>]*href=["']([^"']+)["']/i)
+    if (manifestLink) {
+      try {
+        const manifestUrl = new URL(manifestLink[1], baseUrl).toString()
+        const manifestRes = await fetch(manifestUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(3000)
+        })
+        if (manifestRes.ok) {
+          const manifest = await manifestRes.json()
+          if (manifest.icons && Array.isArray(manifest.icons)) {
+            // 最も大きいアイコンを優先
+            const sortedIcons = manifest.icons
+              .filter((icon: { src: string; sizes?: string }) => icon.src)
+              .sort((a: { sizes?: string }, b: { sizes?: string }) => {
+                const sizeA = parseInt(a.sizes?.split('x')[0] || '0')
+                const sizeB = parseInt(b.sizes?.split('x')[0] || '0')
+                return sizeB - sizeA
+              })
+            for (const icon of sortedIcons.slice(0, 3)) {
+              candidates.push(new URL(icon.src, baseUrl).toString())
+            }
+          }
+        }
+      } catch (manifestError) {
+        console.warn('Failed to fetch manifest:', manifestError)
+      }
+    }
+
+    // OG画像（サイトのプロモーション画像として有用）
+    const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
+    if (ogImage) {
+      candidates.push(ogImage[1])
+    }
+
+    return candidates
+  } catch (e) {
+    console.warn('Failed to get logo from HTML:', e)
+    return candidates
   }
 }

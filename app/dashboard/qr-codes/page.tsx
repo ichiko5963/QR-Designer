@@ -351,7 +351,7 @@ export default function QRCodesPage() {
                   className="group relative bg-white rounded-2xl border border-[#171158]/5 overflow-hidden"
                 >
                   {/* QRコード画像 */}
-                  <div className="aspect-square bg-[#FAFBFC] p-4">
+                  <div className="relative aspect-square bg-[#FAFBFC] p-4">
                     {qr.qr_image_url && (
                       <img
                         src={qr.qr_image_url}
@@ -359,57 +359,77 @@ export default function QRCodesPage() {
                         className="w-full h-full object-contain"
                       />
                     )}
-                  </div>
 
-                  {/* ホバー時のオーバーレイ */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
-                    {/* メインアクション: ダウンロード */}
-                    <a
-                      href={qr.qr_image_url || '#'}
-                      download={`${sanitizeFilename(qr.page_title || qr.design_name || 'qr-code')}.png`}
-                      className="w-12 h-12 bg-white rounded-full flex items-center justify-center hover:scale-110 transition-transform"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <svg className="w-5 h-5 text-[#171158]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
-                    </a>
+                    {/* ホバー時のオーバーレイ（画像部分のみ） */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      {/* メインアクション: ダウンロード */}
+                      <a
+                        href={qr.qr_image_url || '#'}
+                        download={`${sanitizeFilename(qr.page_title || qr.design_name || 'qr-code')}.png`}
+                        className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <svg className="w-4 h-4 text-[#171158]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                      </a>
 
-                    {/* サブアクション: 右下に小さく */}
-                    <div className="absolute bottom-3 right-3 flex gap-1.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedQR(qr)
-                        }}
-                        className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                        title="詳細を見る"
-                      >
-                        <svg className="w-3.5 h-3.5 text-[#1B1723]/60" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation()
-                          if (!confirm('このQRコードを削除しますか？')) return
-                          const supabase = createClient()
-                          const { error } = await supabase
-                            .from('qr_history')
-                            .delete()
-                            .eq('id', qr.id)
-                          if (!error) {
-                            setQrHistory(prev => prev.filter(item => item.id !== qr.id))
-                          }
-                        }}
-                        className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center hover:bg-red-50 transition-colors"
-                        title="削除"
-                      >
-                        <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                        </svg>
-                      </button>
+                      {/* サブアクション: 右下に小さく */}
+                      <div className="absolute bottom-2 right-2 flex gap-1">
+                        {/* リンクをコピー */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            copyToClipboard(qr.url, `link-${qr.id}`)
+                          }}
+                          className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                          title="リンクをコピー"
+                        >
+                          {copied === `link-${qr.id}` ? (
+                            <svg className="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-3 h-3 text-[#1B1723]/60" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.193-9.193a4.5 4.5 0 016.364 6.364l-4.5 4.5a4.5 4.5 0 01-7.244-1.242" />
+                            </svg>
+                          )}
+                        </button>
+                        {/* 編集・詳細 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedQR(qr)
+                          }}
+                          className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                          title="編集・詳細"
+                        >
+                          <svg className="w-3 h-3 text-[#1B1723]/60" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                          </svg>
+                        </button>
+                        {/* 削除 */}
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            if (!confirm('このQRコードを削除しますか？')) return
+                            const supabase = createClient()
+                            const { error } = await supabase
+                              .from('qr_history')
+                              .delete()
+                              .eq('id', qr.id)
+                            if (!error) {
+                              setQrHistory(prev => prev.filter(item => item.id !== qr.id))
+                            }
+                          }}
+                          className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center hover:bg-red-50 transition-colors"
+                          title="削除"
+                        >
+                          <svg className="w-3 h-3 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
