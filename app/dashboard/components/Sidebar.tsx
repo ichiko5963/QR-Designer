@@ -60,6 +60,12 @@ const navigation = [
     badge: null
   },
   {
+    name: '過去のリンク一覧',
+    href: '/dashboard/link-history',
+    icon: LinkHistoryIcon,
+    badge: null
+  },
+  {
     name: 'アンケート',
     href: '/dashboard/forms',
     icon: ClipboardDocumentListIcon,
@@ -176,6 +182,14 @@ function QrScannerIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 3.75H6A2.25 2.25 0 003.75 6v1.5M16.5 3.75H18A2.25 2.25 0 0120.25 6v1.5M20.25 16.5V18A2.25 2.25 0 0118 20.25h-1.5M3.75 16.5V18A2.25 2.25 0 006 20.25h1.5" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 9h.01M9 15h.01M15 9h.01M15 15h.01M12 12h.01" />
+    </svg>
+  )
+}
+
+function LinkHistoryIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.193-9.193a4.5 4.5 0 016.364 6.364l-4.5 4.5a4.5 4.5 0 01-7.244-1.242" />
     </svg>
   )
 }
