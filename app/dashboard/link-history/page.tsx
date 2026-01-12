@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
@@ -13,6 +13,28 @@ interface LinkItem {
   categoryLabel: string
   created_at: string
   qr_image_url?: string | null
+  copyCount?: number
+}
+
+type SortOption = 'newest' | 'most-copied'
+
+// コピー回数をlocalStorageで管理
+const COPY_COUNTS_KEY = 'qr-link-copy-counts'
+
+const getCopyCounts = (): Record<string, number> => {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(localStorage.getItem(COPY_COUNTS_KEY) || '{}')
+  } catch {
+    return {}
+  }
+}
+
+const incrementCopyCount = (url: string): number => {
+  const counts = getCopyCounts()
+  counts[url] = (counts[url] || 0) + 1
+  localStorage.setItem(COPY_COUNTS_KEY, JSON.stringify(counts))
+  return counts[url]
 }
 
 export default function LinkHistoryPage() {
@@ -20,6 +42,7 @@ export default function LinkHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'generated' | 'scanned' | 'private' | 'community'>('all')
+  const [sortBy, setSortBy] = useState<SortOption>('newest')
 
   useEffect(() => {
     loadAllLinks()
@@ -96,7 +119,13 @@ export default function LinkHistoryPage() {
       })
     }
 
-    // 日付順にソート
+    // コピー回数を設定
+    const copyCounts = getCopyCounts()
+    allLinks.forEach(link => {
+      link.copyCount = copyCounts[link.url] || 0
+    })
+
+    // 日付順にソート（デフォルト）
     allLinks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     setLinks(allLinks)
@@ -125,12 +154,31 @@ export default function LinkHistoryPage() {
   const copyToClipboard = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text)
     setCopied(id)
+
+    // コピー回数を増やす
+    const newCount = incrementCopyCount(text)
+    setLinks(prev => prev.map(link =>
+      link.id === id ? { ...link, copyCount: newCount } : link
+    ))
+
     setTimeout(() => setCopied(null), 2000)
   }
 
-  const filteredLinks = filter === 'all'
-    ? links
-    : links.filter(link => link.category === filter)
+  // フィルターとソートを適用
+  const filteredAndSortedLinks = (() => {
+    let result = filter === 'all'
+      ? [...links]
+      : links.filter(link => link.category === filter)
+
+    // ソート
+    if (sortBy === 'most-copied') {
+      result.sort((a, b) => (b.copyCount || 0) - (a.copyCount || 0))
+    } else {
+      result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    }
+
+    return result
+  })()
 
   const getCategoryColor = (category: LinkItem['category']) => {
     switch (category) {
@@ -212,40 +260,63 @@ export default function LinkHistoryPage() {
         </p>
       </div>
 
-      {/* フィルター */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { id: 'all' as const, label: 'すべて', count: links.length },
-          { id: 'generated' as const, label: '生成したQR', count: links.filter(l => l.category === 'generated').length },
-          { id: 'scanned' as const, label: 'スキャン', count: links.filter(l => l.category === 'scanned').length },
-          { id: 'private' as const, label: 'プライベート', count: links.filter(l => l.category === 'private').length },
-          { id: 'community' as const, label: 'コミュニティ', count: links.filter(l => l.category === 'community').length },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setFilter(item.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors ${
-              filter === item.id
-                ? 'bg-[#171158] text-white'
-                : 'bg-white text-[#1B1723]/60 hover:bg-[#171158]/5 border border-[#171158]/10'
-            }`}
+      {/* フィルター & ソート */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: 'all' as const, label: 'すべて', count: links.length },
+            { id: 'generated' as const, label: '生成したQR', count: links.filter(l => l.category === 'generated').length },
+            { id: 'scanned' as const, label: 'スキャン', count: links.filter(l => l.category === 'scanned').length },
+            { id: 'private' as const, label: 'プライベート', count: links.filter(l => l.category === 'private').length },
+            { id: 'community' as const, label: 'コミュニティ', count: links.filter(l => l.category === 'community').length },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setFilter(item.id)}
+              className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors ${
+                filter === item.id
+                  ? 'bg-[#171158] text-white'
+                  : 'bg-white text-[#1B1723]/60 hover:bg-[#171158]/5 border border-[#171158]/10'
+              }`}
+            >
+              {item.label}
+              {item.count > 0 && (
+                <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full ${
+                  filter === item.id ? 'bg-white/20' : 'bg-[#171158]/10'
+                }`}>
+                  {item.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ソートドロップダウン */}
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="appearance-none bg-white border border-[#171158]/10 rounded-xl px-4 py-2 pr-10 text-sm font-medium text-[#1B1723]/70 cursor-pointer hover:border-[#171158]/30 focus:outline-none focus:ring-2 focus:ring-[#171158]/20"
           >
-            {item.label}
-            {item.count > 0 && (
-              <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full ${
-                filter === item.id ? 'bg-white/20' : 'bg-[#171158]/10'
-              }`}>
-                {item.count}
-              </span>
-            )}
-          </button>
-        ))}
+            <option value="newest">新しい順</option>
+            <option value="most-copied">よくコピーする順</option>
+          </select>
+          <svg
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1B1723]/40 pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </div>
       </div>
 
       {/* リンク一覧 */}
-      {filteredLinks.length > 0 ? (
+      {filteredAndSortedLinks.length > 0 ? (
         <div className="bg-white rounded-2xl border border-[#171158]/5 divide-y divide-[#171158]/5">
-          {filteredLinks.map((link) => (
+          {filteredAndSortedLinks.map((link) => (
             <div key={link.id} className="p-4 hover:bg-[#FAFBFC] transition-colors">
               <div className="flex items-start gap-4">
                 {/* QR画像（あれば） */}
@@ -275,6 +346,14 @@ export default function LinkHistoryPage() {
                     <span className="text-xs text-[#1B1723]/40">
                       {new Date(link.created_at).toLocaleDateString('ja-JP')}
                     </span>
+                    {(link.copyCount || 0) > 0 && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-[#E6A24C]/10 text-[#E6A24C]">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2" />
+                        </svg>
+                        {link.copyCount}回
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-semibold text-[#1B1723] truncate">
                     {link.title || formatUrl(link.url)}
