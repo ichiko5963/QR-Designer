@@ -21,34 +21,27 @@ export async function generateDesigns(analysis: URLAnalysis): Promise<Design[]> 
   
   const prompt = `
 あなたはQRコードデザイナーです。
-以下の情報を元に、4種類のユニークで「印象の違いがはっきりした」QRコードデザインを提案してください。
+以下の情報を元に、4種類のQRコードデザインを提案してください。
 
 サイト情報:
-- カテゴリー: ${analysis.category}
-- テーマ: ${analysis.theme}
-- 雰囲気: ${analysis.mood}
 - ブランドメインカラー: ${primaryColor || '抽出できず（AI推定可）'}
 - カラー候補: ${palette.join(', ')}
-- モチーフ: ${analysis.motif}
 
-各デザインには以下を含めてください（4案すべてで色・スタイル・角・モチーフ表現が被らないこと）:
-1. 名前（キャッチーな日本語、10文字以内）
-2. 説明（どんな印象を与えるか、20文字以内）
+各デザインには以下を含めてください（4案すべてで色・スタイル・角が被らないこと）:
+1. 名前（色や特徴を表すシンプルな名前。例: "ネイビー", "グラデーション", "モノクロ", "パステル", "ダーク", "ライト"など）
+2. 説明（色の特徴のみ。例: "深い青で落ち着いた印象", "明るい緑でポップに"など、15文字以内）
 3. 前景色（HEXコード）
 4. 背景色（HEXコード）
 5. スタイル（bold/minimal/colorful/elegant をばらけさせる）
 6. 角のスタイル（square/rounded/dots をばらけさせる）
-7. モチーフキーワード（URLの特徴を表す英語1単語: dinosaur, aquarium, ai, coffee, company など）
 
-例: 恐竜博物館の場合
-{
-  "name": "ジュラシック",
-  "description": "力強い恐竜の世界",
-  "fgColor": "#2E8B57",
-  "bgColor": "#F5F5DC",
-  "style": "bold",
-  "cornerStyle": "dots"
-}
+重要: 名前は「電脳」「迷宮」「神秘」などの抽象的・詩的な表現を避け、色の名前や視覚的特徴のみで命名すること。
+
+例:
+[
+  {"name": "ダークブルー", "description": "深い青で落ち着いた印象", "fgColor": "#1A365D", "bgColor": "#FFFFFF", "style": "minimal", "cornerStyle": "square"},
+  {"name": "グラデーション", "description": "青から緑へ滑らかに変化", "fgColor": "#2E8B57", "bgColor": "#FFFFFF", "style": "colorful", "cornerStyle": "dots"}
+]
 
 JSON配列で出力してください。4つのデザインを含めてください。
 `
