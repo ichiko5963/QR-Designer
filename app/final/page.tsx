@@ -107,8 +107,8 @@ export default function FinalPage() {
                     <img
                       src={data.qrCode}
                       alt="QR Code"
-                      className="relative z-10 rounded-xl shadow-2xl shadow-[#171158]/10"
-                      style={{ width: '280px', height: '280px' }}
+                      className="relative z-10 rounded-xl shadow-2xl shadow-[#171158]/10 aspect-square object-contain"
+                      style={{ width: '280px' }}
                     />
                   </div>
 

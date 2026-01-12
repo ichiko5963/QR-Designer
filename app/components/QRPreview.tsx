@@ -66,10 +66,10 @@ export default function QRPreview({
           <img
             src={qrCode}
             alt="Generated QR Code"
-            className="relative z-10 max-w-full h-auto rounded-xl shadow-2xl shadow-[#171158]/10"
+            className="relative z-10 rounded-xl shadow-2xl shadow-[#171158]/10 aspect-square object-contain"
             style={{
               width: Math.min(customization.size, 320),
-              height: Math.min(customization.size, 320)
+              maxWidth: '100%'
             }}
           />
         </div>
